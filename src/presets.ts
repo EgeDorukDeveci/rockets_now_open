@@ -1,7 +1,7 @@
 // Hazır roket tasarımları (doküman §7).
 // Boyutlar doğrulanmış gerçek değerlere yakın; Saturn V / Falcon 9 ölçekli modellerdir.
 
-import { RocketConfig, defaultStage } from "./types";
+import { RocketConfig, defaultStage, MotorChoice } from "./types";
 import { GrainGeometry } from "./physics/motors/curve";
 
 export interface Preset {
@@ -36,7 +36,7 @@ function estesStage(params: {
 
 function stageWithMotor(
   over: { bodyLen?: number; dia?: number; noseCal?: number; fins?: number; finRoot?: number; finTip?: number; finSpan?: number; xPos?: number; material?: string; paint?: boolean },
-  motor: { kind: "estes"; id: string; count: number } | { kind: "apcp"; cls: string; avgThrustN: number; delay: number; impulsePct: number; grain: GrainGeometry; count: number } | { kind: "liquid"; fuel: string; name: string; thrustN: number; propMassKg: number; dryFraction: number; count: number },
+  motor: MotorChoice,
   chuteDia = 0.4,
   separation: "hot" | "cold" = "hot"
 ): ReturnType<typeof defaultStage> {
@@ -52,7 +52,7 @@ function stageWithMotor(
   s.fins.tipChordM = over.finTip ?? 0.06;
   s.fins.semispanM = over.finSpan ?? 0.05;
   s.fins.xPosM = over.xPos ?? Math.max(0, s.body.lengthM - (over.finRoot ?? 0.08) - 0.03);
-  s.motor.choice = motor as never;
+  s.motor.choice = motor;
   s.recovery = { type: "parachute", diameterM: chuteDia, material: "plastic", trigger: "delay", timerSeconds: 2, shockCordM: 0.8, drogueDiaM: 0 };
   s.separation = separation;
   return s;
@@ -86,6 +86,117 @@ export const PRESETS: Preset[] = [
       });
       return {
         name: "Estes Big Bertha", stages: [s], boosterCount: 0,
+        boosterMotor: { choice: { kind: "estes", id: "C6-7", count: 2 }, throttle: 1 },
+        windMps: 3, windDeg: 0, railM: 1.8, railTiltDeg: 0, dt: 0.01,
+      };
+    },
+  },
+  {
+    id: "derRedMax",
+    name: "Estes Der Red Max",
+    desc: "Kızıl sport roket — 4 taramalı kanat, D12-5 ile ~240 m",
+    build: () => {
+      const s = estesStage({
+        bodyLen: 0.32, dia: 0.033, noseCal: 2.8, fins: 4,
+        finRoot: 0.085, finTip: 0.05, finSpan: 0.06, motor: "D12-5", chute: 0.4,
+      });
+      s.fins.geometry = "swept";
+      s.fins.sweepDeg = 18;
+      return {
+        name: "Estes Der Red Max", stages: [s], boosterCount: 0,
+        boosterMotor: { choice: { kind: "estes", id: "C6-7", count: 2 }, throttle: 1 },
+        windMps: 2, windDeg: 0, railM: 1.2, railTiltDeg: 0, dt: 0.01,
+      };
+    },
+  },
+  {
+    id: "wizard",
+    name: "Estes Wizard",
+    desc: "Hafif başlangıç roketi — şerit (streamer) kurtarma, C6-7 ile ~220 m",
+    build: () => {
+      const s = estesStage({
+        bodyLen: 0.28, dia: 0.0249, noseCal: 2, fins: 3,
+        finRoot: 0.07, finTip: 0.05, finSpan: 0.045, motor: "C6-7", chute: 0,
+      });
+      s.recovery = {
+        type: "streamer", diameterM: 0.09, material: "ripstop",
+        trigger: "delay", timerSeconds: 2, shockCordM: 0.5, drogueDiaM: 0,
+      };
+      return {
+        name: "Estes Wizard", stages: [s], boosterCount: 0,
+        boosterMotor: { choice: { kind: "estes", id: "C6-7", count: 2 }, throttle: 1 },
+        windMps: 2, windDeg: 0, railM: 1.2, railTiltDeg: 0, dt: 0.01,
+      };
+    },
+  },
+  {
+    id: "boostedBertha",
+    name: "Boosted Bertha",
+    desc: "İki paralel güçlendiricili — D12-5 çekirdek + 2× C6-7 strapon",
+    build: () => {
+      const s = estesStage({
+        bodyLen: 0.5, dia: 0.066, noseCal: 2.5, fins: 4,
+        finRoot: 0.1, finTip: 0.07, finSpan: 0.07, motor: "D12-5", chute: 0.55,
+      });
+      return {
+        name: "Boosted Bertha", stages: [s], boosterCount: 2,
+        boosterMotor: { choice: { kind: "estes", id: "C6-7", count: 1 }, throttle: 1 },
+        windMps: 2, windDeg: 0, railM: 1.8, railTiltDeg: 0, dt: 0.01,
+      };
+    },
+  },
+  {
+    id: "highPowerH",
+    name: "Yüksek Güç H (APCP)",
+    desc: "Fiberglas gövde — H-sınıfı APCP, çift paraşüt (drogue + ana)",
+    build: () => {
+      const g = { kind: "apcp" as const, cls: "H" as const, avgThrustN: 150, delay: 0, impulsePct: 0.6, grain: "bates" as GrainGeometry, count: 1 };
+      const s = stageWithMotor(
+        { bodyLen: 1.1, dia: 0.075, noseCal: 3.2, fins: 4, finRoot: 0.16, finTip: 0.08, finSpan: 0.13, material: "fiberglass", paint: true },
+        g, 2.2, "hot"
+      );
+      s.recovery.trigger = "apogee";
+      s.recovery.diameterM = 2.2;
+      s.recovery.drogueDiaM = 0.5;
+      s.payload.avionics = "altimeter";
+      return {
+        name: "Yüksek Güç H (APCP)", stages: [s], boosterCount: 0,
+        boosterMotor: { choice: { kind: "estes", id: "C6-7", count: 2 }, throttle: 1 },
+        windMps: 3, windDeg: 0, railM: 2.4, railTiltDeg: 0, dt: 0.01,
+      };
+    },
+  },
+  {
+    id: "hybridN2O",
+    name: "Hibrit N2O/Parafin",
+    desc: "Kısılabilir hibrit motor — uçuş bilgisayarı, apogee tetikli açılış",
+    build: () => {
+      const s = stageWithMotor(
+        { bodyLen: 0.9, dia: 0.075, noseCal: 2.5, fins: 3, finRoot: 0.13, finTip: 0.07, finSpan: 0.11, material: "phenolic", paint: true },
+        { kind: "hybrid", thrustN: 90, propMassKg: 0.045, count: 1 }, 1.8, "hot"
+      );
+      s.recovery.trigger = "apogee";
+      s.recovery.diameterM = 1.8;
+      s.payload.avionics = "flightComputer";
+      return {
+        name: "Hibrit N2O/Parafin", stages: [s], boosterCount: 0,
+        boosterMotor: { choice: { kind: "estes", id: "C6-7", count: 2 }, throttle: 1 },
+        windMps: 2, windDeg: 0, railM: 2, railTiltDeg: 0, dt: 0.01,
+      };
+    },
+  },
+  {
+    id: "bigDaddy",
+    name: "Estes Big Daddy",
+    desc: "Geniş BT-80 gövde — 4 büyük kanat, E12-6 ile ~200 m",
+    build: () => {
+      const s = estesStage({
+        bodyLen: 0.56, dia: 0.066, noseCal: 3, fins: 4,
+        finRoot: 0.12, finTip: 0.08, finSpan: 0.09, motor: "E12-6", chute: 0.6,
+      });
+      s.fins.geometry = "elliptical";
+      return {
+        name: "Estes Big Daddy", stages: [s], boosterCount: 0,
         boosterMotor: { choice: { kind: "estes", id: "C6-7", count: 2 }, throttle: 1 },
         windMps: 3, windDeg: 0, railM: 1.8, railTiltDeg: 0, dt: 0.01,
       };

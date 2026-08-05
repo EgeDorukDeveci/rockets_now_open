@@ -418,57 +418,6 @@ select.speed:hover {
   cursor: not-allowed;
 }
 
-/* -- Uyarılar -- */
-
-.warnings {
-  border-top: 1px solid var(--border);
-  padding: 8px 12px 10px;
-  max-height: 150px;
-  overflow-y: auto;
-  flex-shrink: 0;
-  background: var(--bg);
-  overscroll-behavior: contain;
-}
-
-.warn-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  color: var(--warn);
-  text-transform: uppercase;
-  margin-bottom: 5px;
-}
-
-.warn-title.error {
-  color: var(--danger);
-}
-
-.warn {
-  font-size: 11px;
-  padding: 3px 0;
-  line-height: 1.4;
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-}
-
-.warn-error {
-  color: var(--danger);
-}
-
-.warn-warning {
-  color: var(--warn);
-}
-
-.warn-info {
-  color: var(--dim);
-}
-
-.warn-icon {
-  flex-shrink: 0;
-  font-size: 10px;
-}
-
 /* --------------------------------------------------------------------------
    3D görünüm + kamera
    -------------------------------------------------------------------------- */
@@ -714,6 +663,16 @@ select.speed:hover {
   border-radius: var(--radius-s);
   background: var(--panel-2);
   border: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(-4px);
+  animation: mission-in 320ms var(--ease) forwards;
+}
+
+@keyframes mission-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .mission.ok {
@@ -801,11 +760,13 @@ select.speed:hover {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  transition: border-color 150ms var(--ease);
+  transition: border-color 150ms var(--ease), transform 150ms var(--ease), box-shadow 150ms var(--ease);
 }
 
 .stat:hover {
   border-color: var(--border-2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-label {
@@ -822,6 +783,23 @@ select.speed:hover {
   font-weight: 600;
   color: var(--text-strong);
   letter-spacing: -0.01em;
+}
+
+/* Telemetri değeri değişince kısa bir "tick" — 100-160ms pres geri dönüşü. */
+.stat-tick {
+  display: inline-block;
+  animation: stat-tick 160ms var(--ease);
+}
+
+@keyframes stat-tick {
+  0% {
+    color: var(--accent);
+    filter: brightness(1.6);
+  }
+  100% {
+    color: var(--text-strong);
+    filter: brightness(1);
+  }
 }
 
 .stat-unit {

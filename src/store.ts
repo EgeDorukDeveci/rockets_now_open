@@ -6,7 +6,6 @@ import { create } from "zustand";
 import { RocketConfig, StageConfig, defaultConfig } from "./types";
 import { assembleRocket, RocketAssembly } from "./physics/rocket";
 import { predictFlight, FlightPrediction } from "./physics/predict";
-import { validateRocket, DesignWarning } from "./physics/validate";
 import { simulateFlight, FlightResult, TelemetrySample } from "./physics/trajectory";
 
 export type FlightStatus = "idle" | "running" | "paused" | "ended";
@@ -17,7 +16,6 @@ export interface SimState {
   config: RocketConfig;
   assembly: RocketAssembly;
   prediction: FlightPrediction | null;
-  warnings: DesignWarning[];
 
   // ---- Uçuş ----
   status: FlightStatus;
@@ -50,18 +48,11 @@ export interface SimState {
   setShowGrid: (v: boolean) => void;
 }
 
-/** Yapılandırma değiştiğinde montaj + tahmin + uyarıları yeniden hesaplar. */
+/** Yapılandırma değiştiğinde montaj + tahmini yeniden hesaplar. */
 function recompute(config: RocketConfig) {
   const assembly = assembleRocket(config);
   const prediction = predictFlight(config);
-  // Flutter / süpersonik uyarıları assembly.predicted* alanlarını okur — tahminle doldur.
-  const full = {
-    ...assembly,
-    predictedMaxVelMps: prediction.maxVelMps,
-    predictedMaxMach: prediction.maxMach,
-  };
-  const warnings = validateRocket(full);
-  return { config, assembly: full, prediction, warnings };
+  return { config, assembly, prediction };
 }
 
 const initial = recompute(defaultConfig());
@@ -70,7 +61,6 @@ export const useStore = create<SimState>((set, get) => ({
   config: initial.config,
   assembly: initial.assembly,
   prediction: initial.prediction,
-  warnings: initial.warnings,
 
   status: "idle",
   simTime: 0,

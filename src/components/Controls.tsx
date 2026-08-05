@@ -1,14 +1,12 @@
 // Uçuş kontrolleri: fırlat, duraklat, hız, kaydırıcı, sonuç özeti.
 
 import { useStore } from "../store";
-import { warningCounts } from "../physics/validate";
 
 export default function Controls() {
   const status = useStore((s) => s.status);
   const simTime = useStore((s) => s.simTime);
   const speed = useStore((s) => s.speed);
   const result = useStore((s) => s.result);
-  const warnings = useStore((s) => s.warnings);
   const assembly = useStore((s) => s.assembly);
   const prediction = useStore((s) => s.prediction);
 
@@ -18,10 +16,8 @@ export default function Controls() {
   const setSimTime = useStore((s) => s.setSimTime);
   const setSpeed = useStore((s) => s.setSpeed);
 
-  const counts = warningCounts(warnings);
   const end = result ? result.telemetry[result.telemetry.length - 1].t : 1;
 
-  const designBlocked = counts.errors > 0;
   const inFlight = status !== "idle" && status !== "ended";
 
   const twr = assembly.twr;
@@ -33,12 +29,7 @@ export default function Controls() {
       <div className="controls-row">
         <button
           className={`btn launch ${inFlight ? "disabled" : ""}`}
-          disabled={inFlight || designBlocked}
-          title={
-            designBlocked
-              ? "Tasarımda hata var — düzeltmeden fırlatılamaz."
-              : undefined
-          }
+          disabled={inFlight}
           onClick={launch}
         >
           🚀 FIRLAT
@@ -108,14 +99,6 @@ export default function Controls() {
         <div className="summary-item">
           <span className="s-label">Maliyet</span>
           <span className="s-val">{assembly.cost.toFixed(0)} ₺</span>
-        </div>
-        <div className="summary-item">
-          <span className="s-label">Durum</span>
-          <span className={`s-val ${counts.errors > 0 ? "bad" : counts.warnings > 0 ? "warn" : "good"}`}>
-            {counts.errors === 0 && counts.warnings === 0
-              ? "Hazır"
-              : `${counts.errors} hata · ${counts.warnings} uyarı`}
-          </span>
         </div>
       </div>
     </div>

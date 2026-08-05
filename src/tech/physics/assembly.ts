@@ -58,6 +58,9 @@ export interface CatalogMotor {
   propellant: number;
   length: number;
   diameter: number;
+  isp: number;
+  ispVacuum: number;
+  delay: number;
 }
 
 const PI = Math.PI;
@@ -73,6 +76,9 @@ export function motorSpecsFromCatalog(id: string): CatalogMotor | null {
     propellant: s.propellant,
     length: s.length,
     diameter: s.diameter,
+    isp: s.isp,
+    ispVacuum: s.ispVacuum,
+    delay: s.delay,
   };
 }
 

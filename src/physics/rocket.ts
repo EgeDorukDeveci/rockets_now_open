@@ -92,18 +92,6 @@ export interface RocketAssembly {
   boosterMasses: number[];
   /** Toplam yakıt (tüm kademeler + strapon), kg */
   propellantMassKg: number;
-  /** Tahmini apogee (hızlı simülasyon), m */
-  predictedApogeeM: number;
-  /** Tahmini max hız, m/s */
-  predictedMaxVelMps: number;
-  /** Tahmini max Mach */
-  predictedMaxMach: number;
-  /** Tahmini uçuş süresi, s */
-  predictedFlightTimeS: number;
-  /** Tahmini iniş hızı, m/s */
-  predictedLandingMps: number;
-  /** Tahmini sürüklenme, m */
-  predictedDriftM: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -499,12 +487,6 @@ export function assembleRocket(config: RocketConfig): RocketAssembly {
     stageMasses,
     boosterMasses,
     propellantMassKg: propMass,
-    predictedApogeeM: 0,
-    predictedMaxVelMps: 0,
-    predictedMaxMach: 0,
-    predictedFlightTimeS: 0,
-    predictedLandingMps: 0,
-    predictedDriftM: 0,
   };
 }
 

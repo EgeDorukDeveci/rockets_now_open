@@ -14,7 +14,9 @@ function Stat({ label, value, unit }: { label: string; value: string; unit?: str
     <div className="stat">
       <div className="stat-label">{label}</div>
       <div className="stat-value">
-        {value}
+        <span className="stat-tick" key={value}>
+          {value}
+        </span>
         {unit && <span className="stat-unit"> {unit}</span>}
       </div>
     </div>
@@ -131,9 +133,28 @@ function drawChart(
 
   const X = (t: number) => padL + (t / Math.max(xMax, 1e-6)) * plotW;
   const Y = (v: number) => padT + plotH - ((v - Math.min(yMin, 0)) / span) * plotH;
+  const baseY = padT + plotH;
+  const hexToRgba = (hex: string, a: number): string => {
+    const n = parseInt(hex.replace("#", ""), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  };
 
   for (const s of series) {
     if (s.points.length < 2) continue;
+    // Doku altına yumuşak alan dolgusu — eğriyi okumayı kolaylaştırır.
+    const fill = ctx.createLinearGradient(0, padT, 0, baseY);
+    fill.addColorStop(0, hexToRgba(s.color, 0.28));
+    fill.addColorStop(0.7, hexToRgba(s.color, 0.06));
+    fill.addColorStop(1, hexToRgba(s.color, 0));
+    ctx.beginPath();
+    ctx.moveTo(X(s.points[0][0]), baseY);
+    for (let i = 0; i < s.points.length; i++) ctx.lineTo(X(s.points[i][0]), Y(s.points[i][1]));
+    ctx.lineTo(X(s.points[s.points.length - 1][0]), baseY);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    // Çizgi çizimi üstte kalır
     ctx.strokeStyle = s.color;
     ctx.lineWidth = 1.4;
     ctx.beginPath();

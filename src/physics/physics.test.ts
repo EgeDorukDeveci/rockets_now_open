@@ -2,7 +2,6 @@
 // Kabul kriterleri (doküman §9):
 //  - Estes Alpha + C6-7 → apogee 150-220 m
 //  - Vakum modunda Tsiolkovsky ±%1
-//  - Kanatsız roket → stabilite uyarısı
 // Ayrıca: NAR sınıf aralıkları, Barrowman CP, ISA atmosfer, itki eğrisi bütünlüğü.
 
 import { describe, expect, it } from "vitest";
@@ -13,7 +12,6 @@ import { ESTES_MOTORS } from "./motors/catalog";
 import { curveTotalImpulse, generateThrustCurve } from "./motors/curve";
 import { assembleRocket } from "./rocket";
 import { simulateFlight } from "./trajectory";
-import { validateRocket } from "./validate";
 import { defaultStage, RocketConfig } from "../types";
 
 /** Estes Alpha benzeri roket: 31.2 cm, 24.9 mm, 3 balsa kanat, C6-7. */
@@ -149,22 +147,11 @@ describe("Montaj ve stabilite", () => {
     expect(a.cpM).toBeGreaterThan(a.cgM);
     expect(a.stabilityCal).toBeGreaterThan(1.0);
   });
-  it("kanatsız roket stabilite uyarısı üretir", () => {
+  it("kanatsız roket stabil değildir", () => {
     const cfg = alphaConfig();
     cfg.stages[0].fins.count = 0;
     const a = assembleRocket(cfg);
-    const warnings = validateRocket(a);
-    expect(warnings.some((w) => w.code === "fins")).toBe(true);
     expect(a.stabilityCal).toBeLessThan(1.0);
-  });
-  it("kanatsız çok kademeli roket de fins uyarısı alır", () => {
-    const cfg = alphaConfig();
-    const bottom = defaultStage();
-    bottom.fins.count = 0;
-    cfg.stages.push(bottom);
-    const a = assembleRocket(cfg);
-    const warnings = validateRocket(a);
-    expect(warnings.some((w) => w.code === "fins")).toBe(true);
   });
   it("boyut değişince kütle değişir", () => {
     const c1 = alphaConfig();

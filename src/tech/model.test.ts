@@ -5,7 +5,6 @@ import {
   serializeTech,
   deserializeTech,
   TECH_COMPONENT_LABELS,
-  type TechRocket,
   type BodyTube,
   type NoseCone,
   type MotorMount,
