@@ -1,6 +1,6 @@
 // Uygulama düzeni: üst bar, tasarım editörü (sol), 3D görünüm (orta), HUD (sağ).
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "../store";
 import { RocketConfig } from "../types";
 import DesignEditor from "./DesignEditor";
@@ -8,7 +8,7 @@ import { HudPanel } from "./HudPanel";
 import Controls from "./Controls";
 import RocketView from "./RocketView";
 import { PRESETS } from "../presets";
-import { warningCounts } from "../physics/validate";
+import TechApp from "../tech/ui/TechApp";
 
 function CameraButtons() {
   const mode = useStore((s) => s.cameraMode);
@@ -39,27 +39,6 @@ function ViewToggles() {
   );
 }
 
-function WarningsPanel() {
-  const warnings = useStore((s) => s.warnings);
-  const counts = warningCounts(warnings);
-  if (warnings.length === 0) return null;
-  return (
-    <div className="warnings">
-      <div className={`warn-title ${counts.errors > 0 ? "error" : ""}`}>
-        {counts.errors > 0 ? "Tasarım hataları" : "Tasarım uyarıları"}
-      </div>
-      {warnings.map((w, i) => (
-        <div key={i} className={`warn warn-${w.level}`}>
-          <span className="warn-icon">
-            {w.level === "error" ? "⛔" : w.level === "warning" ? "⚠" : "ℹ"}
-          </span>
-          <span>{w.message}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function exportJSON(config: RocketConfig) {
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -71,11 +50,30 @@ function exportJSON(config: RocketConfig) {
 }
 
 export default function App() {
+  const [mode, setMode] = useState<"casual" | "tech">("casual");
   const config = useStore((s) => s.config);
   const updateConfig = useStore((s) => s.updateConfig);
   const setName = useStore((s) => s.setName);
   const reset = useStore((s) => s.reset);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  if (mode === "tech") {
+    return (
+      <div className="app">
+        <header className="topbar">
+          <div className="logo">
+            <span className="logo-rocket">🚀</span>
+            <span className="logo-text">SLOP<span className="accent">ROCKET</span></span>
+            <span className="logo-sub">Teknik Mod</span>
+          </div>
+          <div className="topbar-actions">
+            <button className="btn small" onClick={() => setMode("casual")}>← Kolay Mod</button>
+          </div>
+        </header>
+        <TechApp />
+      </div>
+    );
+  }
 
   const applyPreset = (id: string) => {
     const p = PRESETS.find((p) => p.id === id);
@@ -140,13 +138,13 @@ export default function App() {
             }}
           />
           <button className="btn small" onClick={reset}>Temizle</button>
+          <button className="btn small" onClick={() => setMode("tech")}>Teknik Mod →</button>
         </div>
       </header>
 
       <main className="layout">
         <aside className="left">
           <DesignEditor />
-          <WarningsPanel />
         </aside>
         <section className="center">
           <div className="view3d">
