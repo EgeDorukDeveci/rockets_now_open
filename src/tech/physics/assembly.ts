@@ -13,6 +13,7 @@ import {
   TechComponent,
   TechRocket,
 } from "../model";
+import { analyzeBarrowman } from "./barrowman";
 
 export interface PlacedComponent {
   kind: ComponentKind;
@@ -304,8 +305,9 @@ export function assembleTech(r: TechRocket): TechAssembly {
 
   const liftoffMass = structureMass + motorMass;
   const cg = liftoffMass > 0 ? sumMom / liftoffMass : 0;
-  const cp = 0.24; // Task 4 Barrowman yer tutucusu
-  const cnTotal = 38; // Task 4 yer tutucusu
+  const barrowman = analyzeBarrowman(r);
+  const cp = barrowman.cp;
+  const cnTotal = barrowman.cnTotal;
   const stability = (cp - cg) / referenceDiameter;
 
   return {
