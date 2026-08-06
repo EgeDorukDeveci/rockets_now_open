@@ -1,5 +1,4 @@
-// Teknik mod merkezi durumu. Fizik montajı Task 3'te eklenir; şimdilik
-// sadece bileşen ağacı yönetimi + simülasyon yer tutucuları.
+// Teknik mod merkezi durumu: bileşen ağacı yönetimi + simülasyon çalıştırma.
 
 import { create } from "zustand";
 import {
@@ -11,9 +10,19 @@ import {
   makeComponent,
   uid,
 } from "./model";
+import { TechFlightResult, TechSimSample, sampleAtTime, simulate } from "./physics/simulator";
 
 export type TechUiTab = "analysis" | "drag" | "simulation" | "motor";
 export type TechStatus = "idle" | "running" | "ended";
+export type TechCameraMode = "follow" | "pad" | "free";
+
+/** Simülasyonu resetlemeden bileşen değişikliği yapılınca sonucu geçersiz kılar. */
+function staleResult(result: TechFlightResult | null): TechFlightResult | null {
+  return result === null ? null : { ...result, samples: [], summary: { ...result.summary } };
+}
+
+/** Sonuç geçersizken 3D sahnenin eski örneği göstermesini engeller. */
+const STALE = { currentSample: null, simTime: 0 } as const;
 
 export function findComponent(components: TechComponent[], id: string): TechComponent | null {
   for (const c of components) {
@@ -55,8 +64,11 @@ export interface TechSimState {
   tab: TechUiTab;
   status: TechStatus;
   simTime: number;
-  result: unknown;
-  currentSample: unknown;
+  result: TechFlightResult | null;
+  currentSample: TechSimSample | null;
+  cameraMode: TechCameraMode;
+  showTrajectory: boolean;
+  showGrid: boolean;
 
   updateRocket: (r: TechRocket) => void;
   patchConditions: (patch: Partial<TechConditions>) => void;
@@ -69,7 +81,10 @@ export interface TechSimState {
   runSimulation: () => void;
   resetSim: () => void;
   setSimTime: (t: number) => void;
-  setCurrentSample: (s: unknown) => void;
+  setCurrentSample: (s: TechSimSample | null) => void;
+  setCameraMode: (m: TechCameraMode) => void;
+  setShowTrajectory: (v: boolean) => void;
+  setShowGrid: (v: boolean) => void;
 }
 
 export const useTechStore = create<TechSimState>((set, get) => ({
@@ -80,9 +95,13 @@ export const useTechStore = create<TechSimState>((set, get) => ({
   simTime: 0,
   result: null,
   currentSample: null,
+  cameraMode: "follow",
+  showTrajectory: true,
+  showGrid: true,
 
   updateRocket: (r) => set({ rocket: r }),
-  patchConditions: (patch) => set({ rocket: { ...get().rocket, conditions: { ...get().rocket.conditions, ...patch } } }),
+  patchConditions: (patch) =>
+    set({ rocket: { ...get().rocket, conditions: { ...get().rocket.conditions, ...patch } } }),
   selectComponent: (id) => set({ selectedId: id }),
   updateComponent: (id, patch) => {
     const rocket = get().rocket;
@@ -90,24 +109,42 @@ export const useTechStore = create<TechSimState>((set, get) => ({
       ...st,
       components: st.components.map((c) => replaceComponentInTree(c, id, patch)),
     }));
-    set({ rocket: { ...rocket, stages } });
+    set({ rocket: { ...rocket, stages }, result: staleResult(get().result), ...STALE });
   },
   addComponent: (parentId, kind) => {
     const comp = makeComponent(kind);
     comp.id = uid();
     const rocket = get().rocket;
     const stages = rocket.stages.map((st) => ({ ...st, components: insertComponent(st.components, parentId, comp) }));
-    set({ rocket: { ...rocket, stages }, selectedId: comp.id });
+    set({ rocket: { ...rocket, stages }, selectedId: comp.id, result: staleResult(get().result), ...STALE });
   },
   removeComponent: (id) => {
     const rocket = get().rocket;
     const stages = rocket.stages.map((st) => ({ ...st, components: removeComponentFromTree(st.components, id) }));
-    set({ rocket: { ...rocket, stages }, selectedId: null });
+    set({ rocket: { ...rocket, stages }, selectedId: null, result: staleResult(get().result), ...STALE });
   },
   setTab: (t) => set({ tab: t }),
   setStatus: (s) => set({ status: s }),
-  runSimulation: () => { /* Task 8'de gerçek simülasyon */ },
+  runSimulation: () => {
+    const rocket = get().rocket;
+    const result = simulate(rocket);
+    set({
+      result,
+      status: "ended",
+      simTime: 0,
+      currentSample: result.samples.length ? result.samples[0] : null,
+    });
+  },
   resetSim: () => set({ status: "idle", simTime: 0, result: null, currentSample: null }),
-  setSimTime: (t) => set({ simTime: t }),
+  setSimTime: (t) => {
+    const result = get().result;
+    set({
+      simTime: t,
+      currentSample: result && result.samples.length ? sampleAtTime(result, t) : null,
+    });
+  },
   setCurrentSample: (s) => set({ currentSample: s }),
+  setCameraMode: (m) => set({ cameraMode: m }),
+  setShowTrajectory: (v) => set({ showTrajectory: v }),
+  setShowGrid: (v) => set({ showGrid: v }),
 }));

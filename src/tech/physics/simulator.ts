@@ -524,6 +524,39 @@ export function simulateVacuum(rocket: TechRocket): number {
   return res.summary.maxVelMps;
 }
 
+/** Sonuçtan t anındaki örneği doğrusal enterpolasyonla bulur; aralık dışında uç örnek. */
+export function sampleAtTime(result: TechFlightResult, t: number): TechSimSample {
+  const samples = result.samples;
+  if (samples.length === 0) {
+    return { t: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, speed: 0, massKg: 0, accelG: 0, alphaDeg: 0, deployed: false, onRod: false };
+  }
+  if (t <= samples[0].t) return samples[0];
+  const last = samples[samples.length - 1];
+  if (t >= last.t) return last;
+  let lo = 0;
+  let hi = samples.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (samples[mid].t <= t) lo = mid;
+    else hi = mid;
+  }
+  const a = samples[lo];
+  const b = samples[hi];
+  const f = Math.min(1, Math.max(0, (t - a.t) / Math.max(b.t - a.t, 1e-9)));
+  const lerp = (p: number, q: number) => p + (q - p) * f;
+  return {
+    t: lerp(a.t, b.t),
+    x: lerp(a.x, b.x), y: lerp(a.y, b.y), z: lerp(a.z, b.z),
+    vx: lerp(a.vx, b.vx), vy: lerp(a.vy, b.vy), vz: lerp(a.vz, b.vz),
+    speed: lerp(a.speed, b.speed),
+    massKg: lerp(a.massKg, b.massKg),
+    accelG: lerp(a.accelG, b.accelG),
+    alphaDeg: lerp(a.alphaDeg, b.alphaDeg),
+    deployed: b.deployed,
+    onRod: b.onRod,
+  };
+}
+
 function findMotorId(r: TechRocket): string | null {
   const walk = (cs: TechRocket["stages"][0]["components"]): string | null => {
     for (const c of cs) {

@@ -1087,3 +1087,610 @@ select.speed:hover {
     animation-duration: 0.01ms !important;
   }
 }
+/* ==========================================================================
+   TEKNİK MOD — bileşen ağacı, paneller, tablolar
+   ========================================================================== */
+
+.tech-left {
+  width: 320px;
+}
+
+.tech-left-scroll,
+.tech-right-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+}
+
+.tech-right {
+  width: 340px;
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tech-right .tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--panel);
+}
+
+.tab-clear {
+  margin-left: auto;
+}
+
+.panel {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--dim);
+  user-select: none;
+}
+
+.panel-head .btn {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.panel-empty {
+  color: var(--dim);
+  font-size: 11px;
+  padding: 18px 12px;
+  text-align: center;
+}
+
+.panel-note {
+  color: var(--faint);
+  font-size: 10px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.panel-note.warn {
+  color: var(--warn);
+}
+
+/* -- Bileşen ağacı -- */
+
+.tree {
+  padding: 6px 0;
+  user-select: none;
+}
+
+.tree-stage-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  color: var(--text);
+}
+
+.tree-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tree-row.selected {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+
+.tree-toggle {
+  width: 14px;
+  border: none;
+  background: none;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.tree-toggle-empty {
+  cursor: default;
+}
+
+.tree-icon {
+  color: var(--dim);
+  font-size: 11px;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tree-row.selected .tree-icon {
+  color: var(--accent);
+}
+
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-del {
+  border: none;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 120ms var(--ease), color 120ms var(--ease);
+  flex-shrink: 0;
+}
+
+.tree-row:hover .tree-del {
+  opacity: 1;
+}
+
+.tree-del:hover {
+  color: var(--danger);
+}
+
+.add-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.add-menu-drop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  background: var(--panel-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 4px;
+  min-width: 170px;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.add-menu-drop button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  text-align: left;
+}
+
+.add-menu-drop button:hover {
+  background: var(--accent-soft);
+  color: var(--text-strong);
+}
+
+.add-menu-drop .tree-icon {
+  color: var(--dim);
+}
+
+/* -- Formlar -- */
+
+.cf-form {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cf {
+  display: grid;
+  grid-template-columns: 1fr 84px 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cf > span {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.cf input[type="number"],
+.cf input[type="text"] {
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 6px;
+  width: 100%;
+}
+
+.cf input[type="number"]:focus,
+.cf input[type="text"]:focus {
+  border-color: var(--accent-line);
+  outline: none;
+}
+
+.cf select {
+  grid-column: 2 / 4;
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-size: 11px;
+  padding: 4px 6px;
+  width: 100%;
+}
+
+.cf em {
+  color: var(--faint);
+  font-size: 10px;
+  font-style: normal;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.cf-check {
+  grid-template-columns: 1fr auto;
+}
+
+.cf-check input {
+  accent-color: var(--accent);
+}
+
+.cf-label {
+  color: var(--faint);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.cf-pair {
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.cf-pair input {
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 6px;
+  width: 100%;
+}
+
+.cf-del {
+  border: none;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+}
+
+.cf-del:hover {
+  color: var(--danger);
+}
+
+.cf > input[type="range"] {
+  grid-column: 2 / 4;
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+/* -- Ölçümler -- */
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.metric {
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 6px 8px;
+}
+
+.metric-label {
+  display: block;
+  color: var(--faint);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  display: block;
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.metric-value em {
+  font-style: normal;
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.metric-value.ok {
+  color: var(--ok);
+}
+
+.metric-value.bad {
+  color: var(--danger);
+}
+
+/* -- Tablolar -- */
+
+.table-meta {
+  padding: 8px 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.dt {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.dt th {
+  text-align: left;
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.dt td {
+  padding: 4px 10px;
+  border-bottom: 1px solid rgba(31, 43, 58, 0.5);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.dt .num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.dt tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dt-total td {
+  border-top: 1px solid var(--border-2);
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.dt tr.peak td {
+  background: rgba(255, 179, 64, 0.08);
+}
+
+.muted {
+  color: var(--faint);
+  font-style: italic;
+}
+
+/* -- Barlar (sürükleme payları, Cd-Mach) -- */
+
+.bar-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.bar {
+  display: inline-block;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.bar-sub {
+  background: #3fa86c;
+}
+
+.bar-trans {
+  background: var(--warn);
+}
+
+.bar-super {
+  background: #c06bff;
+}
+
+.zone-legend {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px 2px;
+}
+
+.zone-tag {
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+.zone-tag.sub {
+  color: #3fa86c;
+  border-color: rgba(63, 168, 108, 0.4);
+}
+
+.zone-tag.trans {
+  color: var(--warn);
+  border-color: rgba(255, 179, 64, 0.4);
+}
+
+.zone-tag.super {
+  color: #c06bff;
+  border-color: rgba(192, 107, 255, 0.4);
+}
+
+.drag-name {
+  color: var(--text);
+}
+
+.drag-note {
+  color: var(--faint);
+  font-size: 9px;
+}
+
+/* -- Motorlar -- */
+
+.motor-list {
+  padding: 4px 10px 8px;
+}
+
+.motor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.motor-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.motor-row.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+.motor-id {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-strong);
+  min-width: 52px;
+}
+
+.motor-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.motor-name {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.motor-spec {
+  font-size: 10px;
+  color: var(--faint);
+  font-family: var(--font-mono);
+}
+
+.motor-detail {
+  border-top: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+/* -- Simülasyon -- */
+
+.sim-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  flex-wrap: wrap;
+}
+
+.sim-status {
+  font-size: 10px;
+  color: var(--faint);
+  margin-left: auto;
+}
+
+.scrub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 6px;
+}
+
+.scrub input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.scrub-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.wind-levels {
+  grid-column: 1 / 4;
+}
