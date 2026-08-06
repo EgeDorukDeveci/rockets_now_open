@@ -28,6 +28,15 @@ describe("tech simulator", () => {
     expect(res.summary.maxVelMps).toBeGreaterThan(80);
   });
 
+  it("motorsuz roket simülasyonu çökmez (boş itki eğrisi)", () => {
+    const r = alpha();
+    const mount = r.stages[0].components.find((c) => c.kind === "motormount")!;
+    mount.motorId = null;
+    const res = simulate(r);
+    expect(res.summary.apogeeM).toBeLessThan(10);
+    expect(res.samples.length).toBeGreaterThan(10);
+  });
+
   it("vakum modu: Tsiolkovsky ±%1", () => {
     const r = alpha();
     const dv = simulateVacuum(r);

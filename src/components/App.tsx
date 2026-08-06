@@ -9,6 +9,8 @@ import Controls from "./Controls";
 import RocketView from "./RocketView";
 import { PRESETS } from "../presets";
 import TechApp from "../tech/ui/TechApp";
+import { casualToTech } from "../tech/convert";
+import { useTechStore } from "../tech/store";
 
 function CameraButtons() {
   const mode = useStore((s) => s.cameraMode);
@@ -80,6 +82,19 @@ export default function App() {
     if (p) updateConfig(p.build());
   };
 
+  const enterTech = () => {
+    useTechStore.setState({
+      rocket: casualToTech(config),
+      result: null,
+      currentSample: null,
+      status: "idle",
+      simTime: 0,
+      selectedId: null,
+      tab: "analysis",
+    });
+    setMode("tech");
+  };
+
   const onImportFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -138,7 +153,7 @@ export default function App() {
             }}
           />
           <button className="btn small" onClick={reset}>Temizle</button>
-          <button className="btn small" onClick={() => setMode("tech")}>Teknik Mod →</button>
+          <button className="btn small" onClick={enterTech}>Teknik Mod →</button>
         </div>
       </header>
 

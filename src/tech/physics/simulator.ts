@@ -147,6 +147,7 @@ interface St {
 }
 
 function cumAt(ctx: SimCtx, t: number): number {
+  if (ctx.curve.length === 0) return 0;
   const c = ctx.cum;
   if (t <= 0) return 0;
   if (t >= ctx.curve[ctx.curve.length - 1].t) return ctx.totalImpulse;
