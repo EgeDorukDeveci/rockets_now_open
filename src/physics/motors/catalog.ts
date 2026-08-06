@@ -206,6 +206,32 @@ export function makeApcpMotor(
   };
 }
 
+/** Teknik mod APCP id şeması (örn. "G30-7W") için sınıf → toplam itki eşlemesi. */
+const APCP_TECH_IMPULSE: Record<string, number> = {
+  A: 1.9, B: 4, C: 8, D: 14, E: 30, F: 60, G: 120,
+};
+
+/** Teknik mod motor seçicilerinde sunulan APCP kataloğu (A–G). */
+export const TECH_APCP_MOTORS: MotorSpec[] = [
+  makeApcpMotor("A", 8, 3, 1.9),
+  makeApcpMotor("B", 10, 4, 4),
+  makeApcpMotor("C", 12, 6, 8),
+  makeApcpMotor("D", 16, 4, 14),
+  makeApcpMotor("E", 20, 5, 30),
+  makeApcpMotor("F", 24, 6, 60),
+  makeApcpMotor("G", 30, 7, 120),
+];
+
+/** "G30-7W" biçimindeki teknik mod motor id'sini katalog motoruna çevirir; uyumsuzsa null. */
+export function apcpMotorFromId(id: string): MotorSpec | null {
+  const m = /^([A-G])(\d+)-(\d+)W$/.exec(id);
+  if (!m) return null;
+  const [, cls, thrust, delay] = m;
+  const it = APCP_TECH_IMPULSE[cls];
+  if (it === undefined) return null;
+  return makeApcpMotor(cls, Number(thrust), Number(delay), it);
+}
+
 export type LiquidFuel = "LOX/RP-1" | "LOX/LH2" | "LOX/CH4";
 
 export interface LiquidMotorSpec extends MotorSpec {

@@ -109,6 +109,7 @@ function Row({ comp, depth }: { comp: TechComponent; depth: number }) {
         <span className="tree-name" title={`${comp.name} — ${TECH_COMPONENT_LABELS[comp.kind]}`}>
           {comp.name}
         </span>
+        <span className="tree-kind">{TECH_COMPONENT_LABELS[comp.kind]}</span>
         {isTube && (
           <AddMenu
             parentId={comp.id}
@@ -133,6 +134,10 @@ function Row({ comp, depth }: { comp: TechComponent; depth: number }) {
   );
 }
 
+function componentCount(cs: TechComponent[]): number {
+  return cs.reduce((n, c) => n + 1 + (c.kind === "bodytube" ? componentCount((c as BodyTube).children) : 0), 0);
+}
+
 export default function ComponentTree() {
   const rocket = useTechStore((s) => s.rocket);
   const stages = rocket.stages;
@@ -141,14 +146,18 @@ export default function ComponentTree() {
     <div className="panel">
       <div className="panel-head">
         <span>Bileşenler</span>
+        <span className="panel-head-meta">
+          {componentCount(stages.flatMap((st) => st.components))} parça · {stages.length} kademe
+        </span>
         <AddMenu parentId={null} />
       </div>
       <div className="tree">
-        {stages.map((st) => (
+        {stages.map((st, i) => (
           <div key={st.id} className="tree-stage">
             <div className="tree-stage-label">
               <span className="tree-icon">⛨</span>
-              {st.name} — Kademe
+              <span className="tree-stage-name">{st.name || `Kademe ${i + 1}`}</span>
+              <span className="tree-stage-badge">{componentCount(st.components)}</span>
             </div>
             {st.components.map((c) => (
               <Row key={c.id} comp={c} depth={1} />

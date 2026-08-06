@@ -8,9 +8,65 @@ import { HudPanel } from "./HudPanel";
 import Controls from "./Controls";
 import RocketView from "./RocketView";
 import { PRESETS } from "../presets";
+import { TECH_PRESETS } from "../tech/presets";
 import TechApp from "../tech/ui/TechApp";
 import { casualToTech } from "../tech/convert";
 import { useTechStore } from "../tech/store";
+
+/** Teknik mod üst barı: model adı + hazır model seçici + mod anahtarı. */
+function TechTopbar({ onBack }: { onBack: () => void }) {
+  const rocket = useTechStore((s) => s.rocket);
+
+  const applyPreset = (id: string) => {
+    const p = TECH_PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    useTechStore.setState({
+      rocket: p.build(),
+      result: null,
+      currentSample: null,
+      status: "idle",
+      simTime: 0,
+      selectedId: null,
+      tab: "analysis",
+    });
+  };
+
+  return (
+    <header className="topbar">
+      <div className="logo">
+        <span className="logo-rocket">🚀</span>
+        <span className="logo-text">SLOP<span className="accent">ROCKET</span></span>
+        <span className="logo-sub tech-mode-chip">Teknik Mod</span>
+      </div>
+      <div className="topbar-mid">
+        <input
+          className="name-input tech-name-input"
+          value={rocket.name}
+          onChange={(e) =>
+            useTechStore.getState().updateRocket({ ...useTechStore.getState().rocket, name: e.target.value })
+          }
+          placeholder="Roket adı"
+        />
+        <select
+          className="preset-select"
+          defaultValue=""
+          onChange={(e) => {
+            if (e.target.value) applyPreset(e.target.value);
+            e.target.value = "";
+          }}
+        >
+          <option value="" disabled>Hazır model…</option>
+          {TECH_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="topbar-actions">
+        <button className="btn small" onClick={onBack}>← Kolay Mod</button>
+      </div>
+    </header>
+  );
+}
 
 function CameraButtons() {
   const mode = useStore((s) => s.cameraMode);
@@ -62,16 +118,7 @@ export default function App() {
   if (mode === "tech") {
     return (
       <div className="app">
-        <header className="topbar">
-          <div className="logo">
-            <span className="logo-rocket">🚀</span>
-            <span className="logo-text">SLOP<span className="accent">ROCKET</span></span>
-            <span className="logo-sub">Teknik Mod</span>
-          </div>
-          <div className="topbar-actions">
-            <button className="btn small" onClick={() => setMode("casual")}>← Kolay Mod</button>
-          </div>
-        </header>
+        <TechTopbar onBack={() => setMode("casual")} />
         <TechApp />
       </div>
     );

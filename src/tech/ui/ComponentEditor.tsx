@@ -1,5 +1,6 @@
-// Seçili bileşen için alan formları — türlere göre öznitelikler.
+// Seçili bileşen için alan formları — türlere göre öznitelikler, gruplu bölümler.
 
+import { ReactNode } from "react";
 import { useTechStore } from "../store";
 import {
   TECH_COMPONENT_LABELS,
@@ -10,12 +11,18 @@ import {
   BodyTube,
 } from "../model";
 import { TECH_MATERIAL_LIST } from "../materials";
-import { ESTES_MOTORS } from "../../physics/motors/catalog";
+import { ESTES_MOTORS, TECH_APCP_MOTORS } from "../../physics/motors/catalog";
 
 const MOTOR_OPTIONS = [
   { id: "", name: "— (boş) —" },
   ...ESTES_MOTORS.map((m) => ({ id: m.id, name: `${m.id} (${(m.mass * 1000) | 0} g)` })),
+  ...TECH_APCP_MOTORS.map((m) => ({ id: m.id, name: `${m.id} (${(m.mass * 1000) | 0} g)` })),
 ];
+
+/** Alan grubu başlığı — "Geometri", "Yerleşim" gibi. */
+function GroupTitle({ children }: { children: string }) {
+  return <div className="cf-group-title">{children}</div>;
+}
 
 function flatten(cs: TechComponent[]): TechComponent[] {
   const out: TechComponent[] = [];
@@ -88,10 +95,11 @@ function CommonFields({ comp, patch }: { comp: TechComponent; patch: (p: Record<
   const showOffset = comp.kind !== "nosecone";
   return (
     <>
-      <label className="cf">
-        <span>Ad</span>
-        <input type="text" value={comp.name} onChange={(e) => patch({ name: e.target.value })} />
-      </label>
+      <GroupTitle>Yerleşim</GroupTitle>
+      {showOffset && (
+        <NumField label="Eksenel ofset" value={comp.axialOffsetM} onChange={(v) => patch({ axialOffsetM: v })} unit="m" />
+      )}
+      <GroupTitle>Malzeme & Yüzey</GroupTitle>
       <SelectField
         label="Malzeme"
         value={comp.materialId}
@@ -99,14 +107,16 @@ function CommonFields({ comp, patch }: { comp: TechComponent; patch: (p: Record<
         onChange={(v) => patch({ materialId: v })}
       />
       <SelectField label="Yüzey" value={comp.finish} options={FINISHES} onChange={(v) => patch({ finish: v })} />
-      {showOffset && (
-        <NumField label="Eksenel ofset" value={comp.axialOffsetM} onChange={(v) => patch({ axialOffsetM: v })} unit="m" />
-      )}
-      {comp.kind === "mass" && (
-        <NumField label="Kütle" value={(comp as Extract<TechComponent, { kind: "mass" }>).massKg} onChange={(v) => patch({ massKg: v })} unit="kg" />
-      )}
-      {comp.massOverrideKg !== undefined && (
-        <NumField label="Kütle override" value={comp.massOverrideKg} onChange={(v) => patch({ massOverrideKg: v })} unit="kg" />
+      {(comp.kind === "mass" || comp.massOverrideKg !== undefined) && (
+        <>
+          <GroupTitle>Kütle</GroupTitle>
+          {comp.kind === "mass" && (
+            <NumField label="Kütle" value={(comp as Extract<TechComponent, { kind: "mass" }>).massKg} onChange={(v) => patch({ massKg: v })} unit="kg" />
+          )}
+          {comp.massOverrideKg !== undefined && (
+            <NumField label="Kütle override" value={comp.massOverrideKg} onChange={(v) => patch({ massOverrideKg: v })} unit="kg" />
+          )}
+        </>
       )}
     </>
   );
@@ -138,10 +148,18 @@ function EditorBody({ comp }: { comp: TechComponent }) {
   const updateComponent = useTechStore((s) => s.updateComponent);
   const patch = (p: Record<string, unknown>) => updateComponent(comp.id, p);
 
+  const geometry = (fields: ReactNode) => (
+    <>
+      <GroupTitle>Geometri</GroupTitle>
+      {fields}
+      <CommonFields comp={comp} patch={patch} />
+    </>
+  );
+
   switch (comp.kind) {
     case "nosecone": {
       const c = comp as Extract<TechComponent, { kind: "nosecone" }>;
-      return (
+      return geometry(
         <>
           <SelectField label="Profil" value={c.shape} options={NOSE_SHAPES} onChange={(v) => patch({ shape: v })} />
           <NumField label="Profil parametresi" value={c.shapeParameter} onChange={(v) => patch({ shapeParameter: v })} />
@@ -151,62 +169,53 @@ function EditorBody({ comp }: { comp: TechComponent }) {
           <CheckField label="Dolu (masif)" value={c.filled} onChange={(v) => patch({ filled: v })} />
           <NumField label="Omuz çapı" value={c.shoulderDiameterM} onChange={(v) => patch({ shoulderDiameterM: v })} unit="m" />
           <NumField label="Omuz uzunluğu" value={c.shoulderLengthM} onChange={(v) => patch({ shoulderLengthM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "bodytube": {
       const c = comp as BodyTube;
-      return (
+      return geometry(
         <>
           <NumField label="Uzunluk" value={c.lengthM} onChange={(v) => patch({ lengthM: v })} unit="m" />
           <NumField label="Dış çap" value={c.outerDiameterM} onChange={(v) => patch({ outerDiameterM: v })} unit="m" />
           <NumField label="Cidar" value={c.wallThicknessM} onChange={(v) => patch({ wallThicknessM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "transition": {
       const c = comp as Extract<TechComponent, { kind: "transition" }>;
-      return (
+      return geometry(
         <>
           <SelectField label="Profil" value={c.shape} options={NOSE_SHAPES} onChange={(v) => patch({ shape: v })} />
           <NumField label="Uzunluk" value={c.lengthM} onChange={(v) => patch({ lengthM: v })} unit="m" />
           <NumField label="Ön çap" value={c.foreDiameterM} onChange={(v) => patch({ foreDiameterM: v })} unit="m" />
           <NumField label="Arka çap" value={c.aftDiameterM} onChange={(v) => patch({ aftDiameterM: v })} unit="m" />
           <NumField label="Cidar" value={c.wallThicknessM} onChange={(v) => patch({ wallThicknessM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "trapezoidfin": {
       const c = comp as Extract<TechComponent, { kind: "trapezoidfin" }>;
-      return (
+      return geometry(
         <>
           <FinFields c={c} patch={patch} />
           <NumField label="Uç kiriş" value={c.tipChordM} onChange={(v) => patch({ tipChordM: v })} unit="m" />
           <NumField label="Süpürme" value={c.sweepLengthM} onChange={(v) => patch({ sweepLengthM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "ellipticalfin": {
       const c = comp as Extract<TechComponent, { kind: "ellipticalfin" }>;
-      return (
-        <>
-          <FinFields c={c} patch={patch} />
-          <CommonFields comp={comp} patch={patch} />
-        </>
-      );
+      return geometry(<FinFields c={c} patch={patch} />);
     }
     case "freeformfin": {
       const c = comp as Extract<TechComponent, { kind: "freeformfin" }>;
-      return (
+      return geometry(
         <>
           <NumField label="Adet" value={c.finCount} onChange={(v) => patch({ finCount: Math.max(1, Math.round(v)) })} step={1} />
           <NumField label="Dönüş" value={c.rotationDeg} onChange={(v) => patch({ rotationDeg: v })} unit="°" />
           <NumField label="Kalınlık" value={c.thicknessM} onChange={(v) => patch({ thicknessM: v })} unit="m" />
-          <div className="cf cf-label">Noktalar (x·y, m)</div>
+          <GroupTitle>Profil Noktaları</GroupTitle>
           {c.points.map((p, i) => (
             <div className="cf cf-pair" key={i}>
               <input
@@ -235,26 +244,24 @@ function EditorBody({ comp }: { comp: TechComponent }) {
           <button className="btn small" onClick={() => patch({ points: [...c.points, { x: 0.02 * (c.points.length + 1), y: 0.04 }] })}>
             Nokta ekle
           </button>
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "tubefin": {
       const c = comp as Extract<TechComponent, { kind: "tubefin" }>;
-      return (
+      return geometry(
         <>
           <NumField label="Adet" value={c.finCount} onChange={(v) => patch({ finCount: Math.max(1, Math.round(v)) })} step={1} />
           <NumField label="Dönüş" value={c.rotationDeg} onChange={(v) => patch({ rotationDeg: v })} unit="°" />
           <NumField label="Uzunluk" value={c.lengthM} onChange={(v) => patch({ lengthM: v })} unit="m" />
           <NumField label="Dış çap" value={c.outerDiameterM} onChange={(v) => patch({ outerDiameterM: v })} unit="m" />
           <NumField label="Cidar" value={c.wallThicknessM} onChange={(v) => patch({ wallThicknessM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "parachute": {
       const c = comp as Extract<TechComponent, { kind: "parachute" }>;
-      return (
+      return geometry(
         <>
           <NumField label="Çap" value={c.diameterM} onChange={(v) => patch({ diameterM: v })} unit="m" />
           <SelectField
@@ -271,67 +278,56 @@ function EditorBody({ comp }: { comp: TechComponent }) {
             <NumField label="Açılma irtifası" value={c.deployAltitudeM} onChange={(v) => patch({ deployAltitudeM: v })} unit="m" />
           )}
           <NumField label="Gecikme" value={c.deployDelayS} onChange={(v) => patch({ deployDelayS: v })} unit="s" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "streamer": {
       const c = comp as Extract<TechComponent, { kind: "streamer" }>;
-      return (
+      return geometry(
         <>
           <NumField label="Uzunluk" value={c.stripLengthM} onChange={(v) => patch({ stripLengthM: v })} unit="m" />
           <NumField label="Genişlik" value={c.stripWidthM} onChange={(v) => patch({ stripWidthM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "shockcord": {
       const c = comp as Extract<TechComponent, { kind: "shockcord" }>;
-      return (
-        <>
-          <NumField label="İp uzunluğu" value={c.cordLengthM} onChange={(v) => patch({ cordLengthM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
-        </>
+      return geometry(
+        <NumField label="İp uzunluğu" value={c.cordLengthM} onChange={(v) => patch({ cordLengthM: v })} unit="m" />
       );
     }
     case "mass": {
       const c = comp as Extract<TechComponent, { kind: "mass" }>;
-      return (
-        <>
-          <NumField label="Kütle" value={c.massKg} onChange={(v) => patch({ massKg: v })} unit="kg" />
-          <CommonFields comp={comp} patch={patch} />
-        </>
+      return geometry(
+        <NumField label="Kütle" value={c.massKg} onChange={(v) => patch({ massKg: v })} unit="kg" />
       );
     }
     case "launchlug": {
       const c = comp as Extract<TechComponent, { kind: "launchlug" }>;
-      return (
+      return geometry(
         <>
           <NumField label="Dış çap" value={c.outerDiameterM} onChange={(v) => patch({ outerDiameterM: v })} unit="m" />
           <NumField label="Uzunluk" value={c.lengthM} onChange={(v) => patch({ lengthM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "railbutton": {
       const c = comp as Extract<TechComponent, { kind: "railbutton" }>;
-      return (
+      return geometry(
         <>
           <NumField label="Dış çap" value={c.outerDiameterM} onChange={(v) => patch({ outerDiameterM: v })} unit="m" />
           <NumField label="Yükseklik" value={c.heightM} onChange={(v) => patch({ heightM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
     case "innertube":
     case "tubecoupler": {
       const c = comp as Extract<TechComponent, { kind: "innertube" } | { kind: "tubecoupler" }>;
-      return (
+      return geometry(
         <>
           <NumField label="Uzunluk" value={c.lengthM} onChange={(v) => patch({ lengthM: v })} unit="m" />
           <NumField label="Dış çap" value={c.outerDiameterM} onChange={(v) => patch({ outerDiameterM: v })} unit="m" />
           <NumField label="Cidar" value={c.wallThicknessM} onChange={(v) => patch({ wallThicknessM: v })} unit="m" />
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
@@ -339,7 +335,7 @@ function EditorBody({ comp }: { comp: TechComponent }) {
     case "bulkhead":
     case "engineblock": {
       const c = comp as Extract<TechComponent, { kind: "centeringring" | "bulkhead" | "engineblock" }>;
-      return (
+      return geometry(
         <>
           <NumField label="Uzunluk" value={c.lengthM} onChange={(v) => patch({ lengthM: v })} unit="m" />
           <NumField label="Dış çap" value={c.outerDiameterM} onChange={(v) => patch({ outerDiameterM: v })} unit="m" />
@@ -351,7 +347,6 @@ function EditorBody({ comp }: { comp: TechComponent }) {
               unit="m"
             />
           )}
-          <CommonFields comp={comp} patch={patch} />
         </>
       );
     }
@@ -359,6 +354,7 @@ function EditorBody({ comp }: { comp: TechComponent }) {
       const c = comp as Extract<TechComponent, { kind: "motormount" }>;
       return (
         <>
+          <GroupTitle>Motor</GroupTitle>
           <SelectField label="Motor" value={c.motorId ?? ""} options={MOTOR_OPTIONS} onChange={(v) => patch({ motorId: v || null })} />
           <NumField label="Çıkıntı" value={c.overhangM} onChange={(v) => patch({ overhangM: v })} unit="m" />
           <CommonFields comp={comp} patch={patch} />
@@ -376,6 +372,7 @@ export default function ComponentEditor() {
       ? s.rocket.stages.flatMap((st) => flatten(st.components)).find((c) => c.id === s.selectedId) ?? null
       : null
   );
+  const updateComponent = useTechStore((s) => s.updateComponent);
   if (!comp) {
     return (
       <div className="panel">
@@ -384,12 +381,17 @@ export default function ComponentEditor() {
       </div>
     );
   }
+  const patchName = (name: string) => updateComponent(comp.id, { name });
   return (
     <div className="panel">
       <div className="panel-head">
         <span>{TECH_COMPONENT_LABELS[comp.kind]}: {comp.name}</span>
       </div>
       <div className="cf-form">
+        <label className="cf">
+          <span>Ad</span>
+          <input type="text" value={comp.name} onChange={(e) => patchName(e.target.value)} />
+        </label>
         <EditorBody comp={comp} />
       </div>
     </div>

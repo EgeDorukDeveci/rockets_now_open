@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTechStore } from "../store";
-import { ESTES_MOTORS, makeApcpMotor } from "../../physics/motors/catalog";
+import { ESTES_MOTORS, TECH_APCP_MOTORS } from "../../physics/motors/catalog";
 import { MotorSpec } from "../../physics/motors/types";
 import { generateThrustCurve } from "../../physics/motors/curve";
 import { Chart } from "./charts";
@@ -10,17 +10,7 @@ import { BodyTube } from "../model";
 
 const fmt = (v: number, digits = 1): string => (Number.isFinite(v) ? v.toFixed(digits) : "—");
 
-const APCP_MOTORS: MotorSpec[] = [
-  makeApcpMotor("A", 8, 3, 1.9),
-  makeApcpMotor("B", 10, 4, 4),
-  makeApcpMotor("C", 12, 6, 8),
-  makeApcpMotor("D", 16, 4, 14),
-  makeApcpMotor("E", 20, 5, 30),
-  makeApcpMotor("F", 24, 6, 60),
-  makeApcpMotor("G", 30, 7, 120),
-];
-
-const ALL_MOTORS: MotorSpec[] = [...ESTES_MOTORS, ...APCP_MOTORS];
+const ALL_MOTORS: MotorSpec[] = [...ESTES_MOTORS, ...TECH_APCP_MOTORS];
 
 function findMountId(rocket: ReturnType<typeof useTechStore.getState>["rocket"]): string | null {
   const walk = (cs: ReturnType<typeof useTechStore.getState>["rocket"]["stages"][0]["components"]): string | null => {
@@ -68,7 +58,7 @@ export function MotorPanel() {
           <MotorRow key={m.id} m={m} selected={selected?.id === m.id} onClick={() => setSelected(m)} onApply={() => applyMotor(m)} hasMount={!!mountId} />
         ))}
         <div className="table-meta">APCP kompozit</div>
-        {APCP_MOTORS.map((m) => (
+        {TECH_APCP_MOTORS.map((m) => (
           <MotorRow key={m.id} m={m} selected={selected?.id === m.id} onClick={() => setSelected(m)} onApply={() => applyMotor(m)} hasMount={!!mountId} />
         ))}
       </div>

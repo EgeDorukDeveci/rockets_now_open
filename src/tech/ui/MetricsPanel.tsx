@@ -23,10 +23,19 @@ export function MetricsPanel() {
   ];
 
   const safe = a.liftoffMass > 1e-9;
+  const stabState = !safe ? "" : a.stability >= 1 ? "ok" : a.stability >= 0.5 ? "warn" : "bad";
+  const stabLabel = !safe ? "—" : a.stability >= 1 ? "STABİL" : a.stability >= 0.5 ? "SINIRDA" : "İSTİKRARSIZ";
 
   return (
     <div className="panel">
       <div className="panel-head"><span>Kütle & Geometri</span></div>
+
+      <div className="stab-row">
+        <span className={`stab-chip ${stabState}`}>{stabLabel}</span>
+        <span className="stab-detail">
+          <b>{safe ? fmt(a.stability, 2) : "—"}</b> kalibre · CP {fmt(a.cp * 1000, 0)} mm · CG {fmt(a.cg * 1000, 0)} mm
+        </span>
+      </div>
 
       <div className="metric-grid">
         {metricsList(a).map((m) => (
@@ -74,7 +83,7 @@ export function MetricsPanel() {
         </tbody>
       </table>
 
-      <div className="table-matrix">Barrowman normal kuvvet dökümü</div>
+      <div className="table-meta">Barrowman normal kuvvet dökümü</div>
       <table className="dt">
         <thead>
           <tr><th>Bileşen</th><th className="num">Cn</th><th className="num">CP</th></tr>

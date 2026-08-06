@@ -1694,3 +1694,292 @@ select.speed:hover {
 .wind-levels {
   grid-column: 1 / 4;
 }
+
+/* ==========================================================================
+   TEKNİK MOD — görsel iyileştirme (süssüz, araçsal)
+   ========================================================================== */
+
+/* -- Üst bar -- */
+
+.tech-mode-chip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 20px;
+  padding: 3px 10px;
+  margin-left: 6px;
+}
+
+.tech-name-input {
+  width: 220px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Panel başlıkları: aksan çentiği + meta alanı */
+
+.tech-right .panel-head,
+.tech-left .panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-head::before {
+  content: "";
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.panel-head > span:first-child {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.panel-head-meta {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.panel-head .add-menu {
+  margin-left: 0;
+}
+
+/* Sekmeler: daha keskin aktif durum */
+
+.tech-right .tabs .tab {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 6px 11px;
+  transition: color 150ms var(--ease), border-color 150ms var(--ease),
+    background 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+
+.tech-right .tabs .tab.active {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.tech-right .tabs .tab-clear {
+  text-transform: none;
+  font-size: 12px;
+  letter-spacing: 0;
+  padding: 5px 9px;
+}
+
+/* Bileşen editörü — gruplu alanlar */
+
+.cf-group-title {
+  margin-top: 4px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--border);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.cf-group-title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.cf-form .cf:first-of-type {
+  margin-top: 2px;
+}
+
+/* Bileşen ağacı — kademe rozetleri ve tür etiketi */
+
+.tree-stage + .tree-stage {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.tree-stage-label {
+  padding-top: 6px;
+  padding-bottom: 4px;
+}
+
+.tree-stage-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-stage-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 20px;
+  padding: 0 7px;
+  line-height: 15px;
+  flex-shrink: 0;
+}
+
+.tree-kind {
+  font-size: 9px;
+  color: var(--faint);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 120ms var(--ease);
+  flex-shrink: 0;
+}
+
+.tree-row:hover .tree-kind {
+  opacity: 1;
+}
+
+.tree-row.selected .tree-kind {
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.tree-row {
+  border-radius: var(--radius-xs);
+  margin: 0 4px;
+  transition: background 120ms var(--ease), border-color 120ms var(--ease);
+}
+
+/* Durum rozetleri (stabilite, simülasyon) */
+
+.stab-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stab-chip,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  border-radius: 20px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-2);
+  color: var(--dim);
+  background: var(--panel-3);
+  white-space: nowrap;
+}
+
+.stab-chip.ok,
+.chip.ok {
+  color: var(--ok);
+  border-color: rgba(125, 255, 106, 0.35);
+  background: rgba(125, 255, 106, 0.08);
+}
+
+.stab-chip.warn,
+.chip.warn {
+  color: var(--warn);
+  border-color: rgba(255, 179, 64, 0.35);
+  background: rgba(255, 179, 64, 0.08);
+}
+
+.stab-chip.bad {
+  color: var(--danger);
+  border-color: rgba(255, 92, 122, 0.35);
+  background: rgba(255, 92, 122, 0.08);
+}
+
+.stab-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+
+.stab-detail {
+  font-size: 10px;
+  color: var(--dim);
+  font-family: var(--font-mono);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stab-detail b {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.sim-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px !important;
+  letter-spacing: 0.9px;
+}
+
+/* Metrikler — daha sıkı, değer hiyerarşisi net */
+
+.metric {
+  padding: 6px 8px;
+}
+
+.metric-value {
+  font-size: 13px;
+}
+
+.metric-value em {
+  font-size: 9px;
+}
+
+/* Tablolar: başlık satırı daha belirgin */
+
+.dt th {
+  border-bottom: 1px solid var(--border-2);
+  padding-bottom: 6px;
+}
+
+.dt td {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+/* Boş editör durumu */
+
+.panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 26px 14px;
+}
+
+.panel-empty::before {
+  content: "⌖";
+  font-size: 20px;
+  color: var(--border-2);
+}

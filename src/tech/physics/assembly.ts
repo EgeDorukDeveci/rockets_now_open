@@ -5,6 +5,7 @@
 // içine yerleştirilir (parent ön ucundan ölçülür).
 
 import { resolveMotor } from "../../physics/rocket";
+import { apcpMotorFromId } from "../../physics/motors/catalog";
 import { MotorChoice } from "../../types";
 import { TECH_MATERIALS, TechMaterial } from "../materials";
 import {
@@ -66,6 +67,22 @@ export interface CatalogMotor {
 const PI = Math.PI;
 
 export function motorSpecsFromCatalog(id: string): CatalogMotor | null {
+  // Teknik mod APCP id'leri ("G30-7W") kataloğun "W" şemasını kullanır.
+  if (id.endsWith("W")) {
+    const ap = apcpMotorFromId(id);
+    if (!ap) return null;
+    return {
+      totalImpulse: ap.totalImpulse,
+      burnTime: ap.burnTime,
+      mass: ap.mass,
+      propellant: ap.propellant,
+      length: ap.length,
+      diameter: ap.diameter,
+      isp: ap.isp,
+      ispVacuum: ap.ispVacuum,
+      delay: ap.delay,
+    };
+  }
   const specs = resolveMotor({ kind: "estes", id, count: 1 } as MotorChoice);
   const s = specs[0];
   if (!s || s.id !== id) return null;

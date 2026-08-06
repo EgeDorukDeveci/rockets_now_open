@@ -129,7 +129,9 @@ function RunControls() {
     <div className="sim-controls">
       <button className="btn launch" onClick={runSimulation}>🚀 SİMÜLASYONU ÇALIŞTIR</button>
       <button className="btn small" onClick={resetSim}>Sıfırla</button>
-      <span className="sim-status">{status === "running" ? "Çalışıyor…" : status === "ended" ? "Tamamlandı" : "Hazır"}</span>
+      <span className={`sim-status chip ${status === "ended" ? "ok" : status === "running" ? "warn" : ""}`}>
+        {status === "running" ? "ÇALIŞIYOR" : status === "ended" ? "TAMAMLANDI" : "HAZIR"}
+      </span>
     </div>
   );
 }
