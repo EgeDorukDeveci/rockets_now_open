@@ -1,4 +1,4 @@
-# SlopRocket — Model Roket Tasarım & Simülasyon Aracı
+# Rockets_Now_Open — Model Roket Tasarım & Simülasyon Aracı
 
 Model roketleri **tasarla**, **fizik doğruluğu yüksek simülasyonla uçur** ve **telemetriyi
 3D olarak izle**. Tarayıcıda çalışır; kurulum gerektirmez.
