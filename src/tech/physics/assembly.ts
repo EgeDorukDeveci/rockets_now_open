@@ -49,6 +49,8 @@ export interface TechAssembly {
   cnTotal: number;
   /** Stabilite marjı, kalibre */
   stability: number;
+  /** Kalkış itki/ağırlık oranı (simülasyonun ateşlediği ilk motor) */
+  twr: number;
   placements: PlacedComponent[];
 }
 
@@ -331,6 +333,20 @@ export function assembleTech(r: TechRocket): TechAssembly {
 
   const liftoffMass = structureMass + motorMass;
   const cg = liftoffMass > 0 ? sumMom / liftoffMass : 0;
+  // Kalkış itkisi: simülasyonun ateşlediği ilk motormount (kademe sırası +
+  // bileşen sırası ile bulunur — simulator.ts ile aynı konvansiyon).
+  let liftoffThrustN = 0;
+  for (const st of stages) {
+    if (liftoffThrustN > 0) break;
+    for (const m of findMounts(st.components)) {
+      if (!m.motorId) continue;
+      const spec = motorSpecsFromCatalog(m.motorId);
+      if (!spec) continue;
+      liftoffThrustN = spec.totalImpulse / Math.max(spec.burnTime, 1e-9);
+      break;
+    }
+  }
+  const twr = liftoffThrustN / (liftoffMass * 9.80665);
   const barrowman = analyzeBarrowman(r);
   const cp = barrowman.cp;
   const cnTotal = barrowman.cnTotal;
@@ -346,6 +362,7 @@ export function assembleTech(r: TechRocket): TechAssembly {
     cp,
     cnTotal,
     stability,
+    twr,
     placements,
   };
 }

@@ -1,13 +1,14 @@
-﻿// Casual <-> Teknik mod d├Ân├╝┼ş├╝m├╝.
-// Birincil y├Ân casual -> teknik: "Teknik Mod" anahtar─▒ mevcut tasar─▒m─▒
-// OpenRocket benzeri bile┼şen a─şac─▒na ta┼ş─▒r. Teknik -> casual geri d├Ân├╝┼ş
-// en iyi ├ğabayla yap─▒l─▒r (desteklenmeyen ┼şekiller varsay─▒lana d├╝┼şer).
+// Casual <-> Teknik mod dönüşümü.
+// Birincil yön casual -> teknik: "Teknik Mod" anahtarı mevcut tasarımı
+// OpenRocket benzeri bileşen ağacına taşır. Teknik -> casual geri dönüş
+// en iyi çabayla yapılır (desteklenmeyen şekiller varsayılana düşer).
 
 import {
   BodyTube,
   CenteringRing,
   ComponentKind,
   EllipticalFinSet,
+  EngineBlock,
   InnerTube,
   MassComponent,
   MotorMount,
@@ -97,7 +98,7 @@ function motorIdFor(choice: StageConfig["motor"]["choice"]): string | null {
   return null;
 }
 
-/** Casual kademeyi teknik kademeye ├ğevirir. */
+/** Casual kademeyi teknik kademeye çevirir. */
 function stageToTech(s: StageConfig, index: number): TechStage {
   const dia = s.body.diameterM;
   const nose = makeComponent("nosecone") as NoseCone;
@@ -113,7 +114,7 @@ function stageToTech(s: StageConfig, index: number): TechStage {
   nose.materialId = techMaterialId(s.nose.material);
 
   const tube = makeComponent("bodytube") as BodyTube;
-  tube.name = "G├Âvde T├╝p├╝";
+  tube.name = "Gövde Tüpü";
   tube.lengthM = s.body.lengthM;
   tube.outerDiameterM = dia;
   tube.wallThicknessM = s.body.wallM;
@@ -121,7 +122,7 @@ function stageToTech(s: StageConfig, index: number): TechStage {
 
   const mountId = motorIdFor(s.motor.choice);
   const mount = makeComponent("motormount") as MotorMount;
-  mount.name = "Motor Montaj─▒";
+  mount.name = "Motor Montajı";
   const mLength = motorLength(mountId);
   mount.motorId = mountId;
   mount.overhangM = 0.005;
@@ -136,18 +137,28 @@ function stageToTech(s: StageConfig, index: number): TechStage {
   inner.materialId = "phenolic";
 
   const ring = makeComponent("centeringring") as CenteringRing;
-  ring.name = "Santraj Halkas─▒";
+  ring.name = "Santraj Halkası";
   ring.lengthM = 0.006;
   ring.outerDiameterM = dia * 0.95;
   ring.innerDiameterM = inner.outerDiameterM;
   ring.axialOffsetM = mount.axialOffsetM;
   ring.materialId = "phenolic";
 
-  const children: TechComponent[] = [mount, inner, ring];
+  // Motor bloğu: motor borusunun arka ucunu kapatır (motor geriye kaymasın,
+  // eject gazı motoru öne iter). Casual'ta ayrı bileşen yok — durağan küçük
+  // disk; montaj kütlesi ve CG'si gerçekçi olması için eklenir.
+  const block = makeComponent("engineblock") as EngineBlock;
+  block.name = "Motor Bloğu";
+  block.lengthM = 0.012;
+  block.outerDiameterM = inner.outerDiameterM + 0.002;
+  block.axialOffsetM = mount.axialOffsetM + inner.lengthM - 0.012;
+  block.materialId = "phenolic";
 
-  // Kurtarma sistemi + ┼şok ipi burun b├Âlmesinde istiflenir (casual ile ayn─▒).
+  const children: TechComponent[] = [mount, inner, ring, block];
+
+  // Kurtarma sistemi + şok ipi burun bölmesinde istiflenir (casual ile aynı).
   const cord = makeComponent("shockcord") as ShockCord;
-  cord.name = "┼Şok ─░pi";
+  cord.name = "Şok İpi";
   cord.cordLengthM = s.recovery.shockCordM;
   cord.axialOffsetM = 0.01;
   cord.materialId = "elastic";
@@ -159,7 +170,7 @@ function stageToTech(s: StageConfig, index: number): TechStage {
       : (makeComponent("streamer") as Streamer);
     if (s.recovery.type === "parachute") {
       const ch = rec as Parachute;
-      ch.name = "Para┼ş├╝t";
+      ch.name = "Paraşüt";
       ch.diameterM = s.recovery.diameterM;
       ch.deployEvent =
         s.recovery.trigger === "apogee"
@@ -171,7 +182,7 @@ function stageToTech(s: StageConfig, index: number): TechStage {
       ch.lineLengthM = Math.min(0.5, ch.diameterM);
     } else {
       const st = rec as Streamer;
-      st.name = "┼Şerit";
+      st.name = "Şerit";
       st.stripLengthM = s.recovery.diameterM;
       st.stripWidthM = Math.max(0.04, s.recovery.diameterM / 5);
     }
@@ -209,15 +220,15 @@ function stageToTech(s: StageConfig, index: number): TechStage {
     fin.finCount = s.fins.count;
     fin.crossSection = CROSS_MAP[s.fins.airfoil] ?? "square";
     fin.materialId = techMaterialId(s.fins.material);
-    // Kanatlar g├Âvde sonuna yerle┼ştirilir (native preset semanti─şi; casual xPosM
-    // g├Ârsel sahne ile fizik aras─▒nda tutars─▒z). x = aft - (rootChord + 0.02).
+    // Kanatlar gövde sonuna yerleştirilir (native preset semantiği; casual xPosM
+    // görsel sahne ile fizik arasında tutarsız). x = aft - (rootChord + 0.02).
     fin.axialOffsetM = -(s.fins.rootChordM + 0.02);
     fins.push(fin);
   }
 
   if (s.payload.hasPayload && s.payload.cargoKg > 0) {
     const mass = makeComponent("mass") as MassComponent;
-    mass.name = "Y├╝k";
+    mass.name = "Yük";
     mass.massKg = s.payload.cargoKg;
     mass.axialOffsetM = -0.02;
     fins.unshift(mass);
@@ -234,7 +245,7 @@ function stageToTech(s: StageConfig, index: number): TechStage {
   };
 }
 
-/** Casual tasar─▒m─▒ teknik bile┼şen a─şac─▒na ├ğevirir. */
+/** Casual tasarımı teknik bileşen ağacına çevirir. */
 export function casualToTech(cfg: RocketConfig): TechRocket {
   const conditions: TechConditions = {
     ...defaultTechConditions(),
@@ -254,7 +265,7 @@ export function casualToTech(cfg: RocketConfig): TechRocket {
     );
     return [{
       id: uid(),
-      name: "G├╝├ğlendirici",
+      name: "Güçlendirici",
       instanceCount: cfg.boosterCount,
       radiusOffsetM: Math.max(0.03, cfg.stages[0].body.diameterM),
       angleOffsetDeg: 0,
@@ -287,7 +298,7 @@ function findKind(cs: TechComponent[], kind: ComponentKind): TechComponent | nul
   return null;
 }
 
-/** Teknik tasar─▒m─▒ casual yap─▒land─▒rmaya ├ğevirir (en iyi ├ğaba). */
+/** Teknik tasarımı casual yapılandırmaya çevirir (en iyi çaba). */
 export function techToCasual(r: TechRocket): RocketConfig {
   const stage = r.stages[0];
   const parts = stage?.components ?? [];

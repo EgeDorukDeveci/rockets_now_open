@@ -1636,6 +1636,17 @@ select.speed:hover {
   min-width: 52px;
 }
 
+.motor-class {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-s);
+  padding: 1px 5px;
+  letter-spacing: 0.5px;
+}
+
 .motor-meta {
   flex: 1;
   min-width: 0;

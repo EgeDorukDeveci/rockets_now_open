@@ -5,6 +5,7 @@ import { useTechStore } from "../store";
 import { assembleTech } from "../physics/assembly";
 import { analyzeBarrowman } from "../physics/barrowman";
 import { TECH_COMPONENT_LABELS } from "../model";
+import { GOOD_STABILITY_CALIBERS, MIN_STABILITY_CALIBERS, MIN_TWR } from "../../physics/acceptance";
 
 const fmt = (v: number, digits = 1): string => (Number.isFinite(v) ? v.toFixed(digits) : "—");
 
@@ -20,11 +21,13 @@ export function MetricsPanel() {
     { label: "Motor kütlesi", value: `${fmt((aa.liftoffMass - aa.structureMass) * 1000, 0)} g` },
     { label: "Kalkış kütlesi", value: `${fmt(aa.liftoffMass * 1000, 0)} g` },
     { label: "İtici kütlesi", value: `${fmt(aa.propellantMass * 1000, 0)} g` },
+    { label: "İtki/ağırlık (TWR)", value: `${fmt(aa.twr, 2)}` },
   ];
 
   const safe = a.liftoffMass > 1e-9;
-  const stabState = !safe ? "" : a.stability >= 1 ? "ok" : a.stability >= 0.5 ? "warn" : "bad";
-  const stabLabel = !safe ? "—" : a.stability >= 1 ? "STABİL" : a.stability >= 0.5 ? "SINIRDA" : "İSTİKRARSIZ";
+  const stabState = !safe ? "" : a.stability >= GOOD_STABILITY_CALIBERS ? "ok" : a.stability >= MIN_STABILITY_CALIBERS ? "warn" : "bad";
+  const stabLabel = !safe ? "—" : a.stability >= GOOD_STABILITY_CALIBERS ? "STABİL" : a.stability >= MIN_STABILITY_CALIBERS ? "SINIRDA" : "İSTİKRARSIZ";
+  const twrBad = safe && a.twr < MIN_TWR;
 
   return (
     <div className="panel">
@@ -34,6 +37,7 @@ export function MetricsPanel() {
         <span className={`stab-chip ${stabState}`}>{stabLabel}</span>
         <span className="stab-detail">
           <b>{safe ? fmt(a.stability, 2) : "—"}</b> kalibre · CP {fmt(a.cp * 1000, 0)} mm · CG {fmt(a.cg * 1000, 0)} mm
+          {twrBad && <em className="muted"> · TWR {fmt(a.twr, 2)} — kalkış riskli</em>}
         </span>
       </div>
 
@@ -55,7 +59,7 @@ export function MetricsPanel() {
         ].map(([label, value]) => (
           <div className="metric" key={label}>
             <span className="metric-label">{label}</span>
-            <span className={`metric-value ${label === "Stabilite" ? (a.stability >= 1 ? "ok" : "bad") : ""}`}>{value}</span>
+            <span className={`metric-value ${label === "Stabilite" ? (a.stability >= GOOD_STABILITY_CALIBERS ? "ok" : "bad") : ""}`}>{value}</span>
           </div>
         ))}
       </div>

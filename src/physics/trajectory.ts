@@ -18,6 +18,7 @@ import { RocketAssembly, resolveMotor } from "./rocket";
 import { FlightEvent, FlightEventId } from "./events";
 import { windAt } from "./wind";
 import { ESTES_MOTORS } from "./motors/catalog";
+import { MAX_LANDING_VEL_MPS } from "./acceptance";
 import { MotorChoice, RocketConfig } from "../types";
 
 export interface FlightState {
@@ -138,7 +139,11 @@ export function simulateFlight(params: FlightParams): FlightResult {
   const config = assembly.config;
   // Öngörü modu: canlı yeniden hesaplamada hız için kaba adım yeterli.
   // Vakum kabul testlerinde (sürtünme yok) hassas adım korunur.
-  const dt = prediction && !vacuum ? Math.max(config.dt, 0.05) : Math.max(config.dt, 0.002);
+  // dt eksikse savunmacı varsayılan: NaN adım tüm uçuşu NaN yapar ve
+  // maxSteps döngüsü asılı kalır.
+  const dt = prediction && !vacuum
+    ? Math.max(config.dt ?? 0.05, 0.05)
+    : Math.max(config.dt ?? 0.002, 0.002);
   const order = flightOrder(config);
   const railLen = config.railM;
   const tiltRad = (config.railTiltDeg * PI) / 180;
@@ -552,7 +557,7 @@ export function simulateFlight(params: FlightParams): FlightResult {
     if (alt <= 0 && st.t > 0.5) {
       landed = true;
       landingVel = Math.hypot(st.vel[0], st.vel[1], st.vel[2]);
-      if (!st.deployed || landingVel > 14) {
+      if (!st.deployed || landingVel > MAX_LANDING_VEL_MPS) {
         success = false;
         message = !st.deployed
           ? "ÇAKILMA: Kurtarma sistemi açılmadı"

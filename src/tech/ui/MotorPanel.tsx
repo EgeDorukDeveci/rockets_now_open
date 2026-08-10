@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTechStore } from "../store";
 import { ESTES_MOTORS, TECH_APCP_MOTORS } from "../../physics/motors/catalog";
-import { MotorSpec } from "../../physics/motors/types";
+import { MotorSpec, classFromImpulse } from "../../physics/motors/types";
 import { generateThrustCurve } from "../../physics/motors/curve";
 import { Chart } from "./charts";
 import { BodyTube } from "../model";
@@ -101,6 +101,9 @@ function MotorRow({ m, selected, onClick, onApply, hasMount }: {
   return (
     <div className={`motor-row ${selected ? "selected" : ""}`} onClick={onClick}>
       <div className="motor-id">{m.id}</div>
+      <span className="motor-class" title={`${classFromImpulse(m.totalImpulse)} sınıfı (${fmt(m.totalImpulse)} N·s)`}>
+        {classFromImpulse(m.totalImpulse)}
+      </span>
       <div className="motor-meta">
         <div className="motor-name">{m.name}</div>
         <div className="motor-spec">

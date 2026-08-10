@@ -14,6 +14,7 @@ import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { TechRocket } from "../model";
 import { assembleTech, placeRocket, motorSpecsFromCatalog } from "../physics/assembly";
 import { TechSimSample } from "../physics/simulator";
+import { cachedGeom, disposeDeep, downsample } from "../../three/cache";
 
 const BG = new THREE.Color(0x0a0f18);
 const GRID_COLOR = 0x1c2736;
@@ -73,6 +74,9 @@ export class TechScene {
 
   private rocketGroup = new THREE.Group();
   private chuteGroup = new THREE.Group();
+  /** Paraşüt konisi + askı ipleri — ctor'da bir kez kurulur, kare başına yeniden kullanılır. */
+  private chuteCone = new THREE.Mesh();
+  private chuteLines: THREE.Mesh[] = [];
   private flame: THREE.Mesh;
   private flameBase = 1;
   private trajectoryLine: Line2 | null = null;
@@ -142,6 +146,34 @@ export class TechScene {
     this.flame.position.y = -0.02;
     this.flame.visible = false;
     this.rocketGroup.add(this.flame);
+
+    // Paraşüt: sabit boyutlu cone + 4 askı ipi; açılışta scale uygulanır.
+    this.chuteCone = new THREE.Mesh(
+      cachedGeom(`tchute:20`, () => new THREE.ConeGeometry(0.25, 0.24, 20)),
+      new THREE.MeshStandardMaterial({
+        color: 0x4da3ff,
+        roughness: 0.9,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+      })
+    );
+    this.chuteCone.rotation.x = Math.PI;
+    this.chuteCone.position.set(0, 0.4, 0);
+    this.chuteCone.visible = false;
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xd7e1ec });
+    for (let i = 0; i < 4; i++) {
+      const line = new THREE.Mesh(
+        cachedGeom(`tchuteline:4`, () => new THREE.CylinderGeometry(0.0008, 0.0008, 0.34, 4)),
+        lineMat
+      );
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      line.position.set(Math.cos(a) * 0.14, 0.17, Math.sin(a) * 0.14);
+      line.rotation.z = Math.cos(a) * 0.35;
+      line.rotation.x = -Math.sin(a) * 0.35;
+      line.visible = false;
+      this.chuteLines.push(line);
+    }
 
     this.onResize = () => {
       const r = canvas.getBoundingClientRect();
@@ -230,7 +262,9 @@ export class TechScene {
   // -------------------------------------------------------------------------
 
   private buildRocket(rocket: TechRocket) {
+    const kids = [...this.rocketGroup.children];
     this.rocketGroup.clear();
+    for (const k of kids) disposeDeep(k);
     this.cgMarker = null;
     this.cpMarker = null;
 
@@ -251,7 +285,7 @@ export class TechScene {
           const sh = (shape as { shape?: string; shapeParameter?: number } | undefined)?.shape ?? "ogive";
           const param = (shape as { shapeParameter?: number } | undefined)?.shapeParameter ?? 0.5;
           const pts = noseProfilePoints(sh, param, R, l);
-          const geo = new THREE.LatheGeometry(pts, 28);
+          const geo = cachedGeom(`tnose:${sh}:${param.toFixed(3)}:${R.toFixed(4)}:${l.toFixed(4)}:28`, () => new THREE.LatheGeometry(pts, 28));
           const mesh = new THREE.Mesh(geo, accentMat);
           mesh.position.y = y + l;
           mesh.castShadow = true;
@@ -259,12 +293,13 @@ export class TechScene {
           break;
         }
         case "bodytube": {
-          const mesh = new THREE.Mesh(new THREE.CylinderGeometry(R, R, p.lengthM, 28), bodyMat);
+          const geo = cachedGeom(`tcyl:${R.toFixed(4)}:${R.toFixed(4)}:${p.lengthM.toFixed(4)}:28`, () => new THREE.CylinderGeometry(R, R, p.lengthM, 28));
+          const mesh = new THREE.Mesh(geo, bodyMat);
           mesh.position.y = y + p.lengthM / 2;
           mesh.castShadow = true;
           this.rocketGroup.add(mesh);
           const band = new THREE.Mesh(
-            new THREE.CylinderGeometry(R * 1.004, R * 1.004, 0.008, 28),
+            cachedGeom(`tband:${(R * 1.004).toFixed(4)}:28`, () => new THREE.CylinderGeometry(R * 1.004, R * 1.004, 0.008, 28)),
             new THREE.MeshStandardMaterial({ color: 0x3a4a60, roughness: 0.5 })
           );
           band.position.y = y + p.lengthM - 0.004;
@@ -278,7 +313,10 @@ export class TechScene {
             { foreDiameterM?: number; aftDiameterM?: number } | undefined;
           const rFore = (comp?.foreDiameterM ?? R * 2) / 2;
           const rAft = (comp?.aftDiameterM ?? R * 2) / 2;
-          const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rFore, rAft, p.lengthM, 28), accentMat);
+          const mesh = new THREE.Mesh(
+            cachedGeom(`ttr:${rFore.toFixed(4)}:${rAft.toFixed(4)}:${p.lengthM.toFixed(4)}:28`, () => new THREE.CylinderGeometry(rFore, rAft, p.lengthM, 28)),
+            accentMat,
+          );
           mesh.position.y = y + p.lengthM / 2;
           mesh.castShadow = true;
           this.rocketGroup.add(mesh);
@@ -295,7 +333,7 @@ export class TechScene {
         }
         case "launchlug": {
           const mesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(p.radialOffsetM + 0.003, p.radialOffsetM + 0.003, p.lengthM, 12),
+            cachedGeom(`tlug:${(p.radialOffsetM + 0.003).toFixed(4)}:${p.lengthM.toFixed(4)}:12`, () => new THREE.CylinderGeometry(p.radialOffsetM + 0.003, p.radialOffsetM + 0.003, p.lengthM, 12)),
             new THREE.MeshStandardMaterial({ color: 0x8fa4bd, roughness: 0.35, metalness: 0.7 })
           );
           mesh.position.y = y + p.lengthM / 2;
@@ -310,7 +348,7 @@ export class TechScene {
           const m = motorSpecsFromCatalog(comp.motorId);
           if (!m) break;
           const nozzle = new THREE.Mesh(
-            new THREE.CylinderGeometry(m.diameter / 2 * 0.7, m.diameter / 2, 0.02, 16),
+            cachedGeom(`tnoz:${(m.diameter / 2 * 0.7).toFixed(4)}:${(m.diameter / 2).toFixed(4)}:16`, () => new THREE.CylinderGeometry(m.diameter / 2 * 0.7, m.diameter / 2, 0.02, 16)),
             new THREE.MeshStandardMaterial({ color: 0x555f6b, roughness: 0.3, metalness: 0.9 })
           );
           nozzle.position.y = y + p.lengthM - 0.01;
@@ -325,7 +363,7 @@ export class TechScene {
     // CG / CP işaretleri — yerel +Y üzerinde (yeşil = kütle merkezi, kırmızı = basınç merkezi)
     const mkRing = (color: number) => {
       const g = new THREE.Mesh(
-        new THREE.TorusGeometry(R * 1.15, 0.0016, 8, 32),
+        cachedGeom(`tring:${(R * 1.15).toFixed(4)}:32`, () => new THREE.TorusGeometry(R * 1.15, 0.0016, 8, 32)),
         new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
       );
       g.rotation.x = Math.PI / 2;
@@ -333,7 +371,7 @@ export class TechScene {
     };
     const mkDot = (color: number) => {
       const g = new THREE.Mesh(
-        new THREE.SphereGeometry(0.007, 12, 12),
+        cachedGeom(`tdot:12`, () => new THREE.SphereGeometry(0.007, 12, 12)),
         new THREE.MeshBasicMaterial({ color })
       );
       return g;
@@ -399,7 +437,10 @@ export class TechScene {
     const thick = "thicknessM" in c ? c.thicknessM : 0.003;
     const count = "finCount" in c ? c.finCount : 3;
     const rotDeg = "rotationDeg" in c ? c.rotationDeg : 0;
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false });
+    const geo = cachedGeom(
+      `tfin:${JSON.stringify(c)}`.slice(0, 200),
+      () => new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false }),
+    );
     const mat = new THREE.MeshStandardMaterial({ color: 0xb9845a, roughness: 0.55, metalness: 0.12 });
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(geo, mat);
@@ -432,8 +473,9 @@ export class TechScene {
     }
     if (!visible || samples.length < 2) return;
 
+    const pts = downsample(samples, 1200);
     const positions: number[] = [];
-    for (const s of samples) positions.push(s.x, s.z, s.y);
+    for (const s of pts) positions.push(s.x, s.z, s.y);
     const geo = new LineGeometry();
     geo.setPositions(positions);
     const mat = new LineMaterial({
@@ -539,34 +581,22 @@ export class TechScene {
       this.flame.position.set(0, -0.02 - this.flameBase * 0.06, 0);
     }
 
-    // Paraşüt: roketin üstünde açılan koni
+    // Paraşüt: roketin üstünde açılan koni.
+    // Geometri/material kare başına yeniden üretilmez; ctor'da bir kez
+    // kurulan chuteCone/chuteLines açılış ölçeğiyle yeniden kullanılır.
     this.chuteGroup.clear();
     if (this.chuteOpen > 0.01) {
-      const dia = 0.5;
-      const ch = new THREE.Mesh(
-        new THREE.ConeGeometry(dia / 2 * this.chuteOpen, 0.24 * this.chuteOpen, 20),
-        new THREE.MeshStandardMaterial({
-          color: 0x4da3ff,
-          roughness: 0.9,
-          transparent: true,
-          opacity: 0.85,
-          side: THREE.DoubleSide,
-        })
-      );
-      ch.rotation.x = Math.PI;
-      ch.position.set(0, 0.4, 0);
-      this.chuteGroup.add(ch);
-      for (let i = 0; i < 4; i++) {
-        const line = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.0008, 0.0008, 0.34, 4),
-          new THREE.MeshBasicMaterial({ color: 0xd7e1ec })
-        );
-        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-        line.position.set(Math.cos(a) * 0.14, 0.17, Math.sin(a) * 0.14);
-        line.rotation.z = Math.cos(a) * 0.35;
-        line.rotation.x = -Math.sin(a) * 0.35;
-        this.chuteGroup.add(line);
+      this.chuteCone.visible = true;
+      this.chuteCone.scale.setScalar(this.chuteOpen);
+      this.chuteGroup.add(this.chuteCone);
+      for (const l of this.chuteLines) {
+        l.visible = true;
+        l.scale.setScalar(this.chuteOpen);
+        this.chuteGroup.add(l);
       }
+    } else {
+      this.chuteCone.visible = false;
+      for (const l of this.chuteLines) l.visible = false;
     }
 
     // Kamera modları

@@ -16,6 +16,7 @@ import { RocketAssembly } from "../physics/rocket";
 import { TelemetrySample } from "../physics/trajectory";
 import { FlightEvent } from "../physics/events";
 import { makeNoseLatheProfile, stackPineCanopies, followDistance, isStageVisible, rocketUpVector, swingUp } from "./geometry";
+import { cachedGeom, disposeDeep, clearDisposed, downsample } from "./cache";
 
 // ---------------------------------------------------------------------------
 // Renk paleti
@@ -105,7 +106,10 @@ function buildStageMesh(stage: StageConfig, colorIndex: number, opts: { showReco
   const finMat = new THREE.MeshStandardMaterial({ color: FIN_COLORS[colorIndex % FIN_COLORS.length], roughness: 0.5, metalness: 0.2 });
 
   // Gövde: taban (yerel y=0) lüle düzlemi; üst kenar y=bodyLen'de.
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, bodyLen, 24), bodyMat);
+  const body = new THREE.Mesh(
+    cachedGeom(`cyl:${R.toFixed(4)}:${R.toFixed(4)}:${bodyLen.toFixed(4)}:24`, () => new THREE.CylinderGeometry(R, R, bodyLen, 24)),
+    bodyMat,
+  );
   body.position.y = bodyLen / 2;
   body.castShadow = true;
   group.add(body);
@@ -113,7 +117,7 @@ function buildStageMesh(stage: StageConfig, colorIndex: number, opts: { showReco
   // Gövde çevresel bantları (boya şeridi görünümü, tonu gövdeden koyu)
   const bandColor = new THREE.Color(bodyColor).multiplyScalar(0.5);
   const bandMat = new THREE.MeshStandardMaterial({ color: bandColor, roughness: 0.45, metalness: 0.4 });
-  const bandGeo = new THREE.CylinderGeometry(R * 1.002, R * 1.002, 0.02, 24);
+  const bandGeo = cachedGeom(`cyl:${(R * 1.002).toFixed(4)}:${(R * 1.002).toFixed(4)}:0.02:24`, () => new THREE.CylinderGeometry(R * 1.002, R * 1.002, 0.02, 24));
   for (const by of [0.02, bodyLen - 0.02]) {
     const band = new THREE.Mesh(bandGeo, bandMat);
     band.position.y = by;
@@ -128,7 +132,10 @@ function buildStageMesh(stage: StageConfig, colorIndex: number, opts: { showReco
 
   // Burun konisi (lathe): taban yerel y=0, sivri uç +Y'de.
   // Mesh y=bodyLen'de → taban gövde üst kenarına, uç roketin tepesine oturur.
-  const noseGeo = new THREE.LatheGeometry(makeNoseLatheProfile(stage.nose.profile, noseLen, R, stage.nose.powerN, stage.nose.bluntness), 24);
+  const noseGeo = cachedGeom(
+    `nose:${stage.nose.profile}:${noseLen.toFixed(4)}:${R.toFixed(4)}:${stage.nose.powerN.toFixed(3)}:${stage.nose.bluntness.toFixed(3)}:24`,
+    () => new THREE.LatheGeometry(makeNoseLatheProfile(stage.nose.profile, noseLen, R, stage.nose.powerN, stage.nose.bluntness), 24),
+  );
   const nose = new THREE.Mesh(noseGeo, noseMat);
   nose.position.y = bodyLen;
   nose.castShadow = true;
@@ -140,11 +147,19 @@ function buildStageMesh(stage: StageConfig, colorIndex: number, opts: { showReco
   if (stage.fins.count > 0) {
     const f = stage.fins;
     const shape = finShape(f, R);
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: f.thicknessM, bevelEnabled: false, steps: 1 });
-    geo.rotateZ(-Math.PI / 2); // (x,y) → (y,−x): kök ön kenar (0,0) korunur, kiriş −Y
-    const embed = Math.min(R * 0.8, f.rootChordM * 0.3);
-    geo.translate(R - embed, 0, 0); // kök kirişi gövde yüzeyine göm
-    geo.translate(0, 0, -f.thicknessM / 2); // kalınlığı ortala
+    const geo = cachedGeom(
+      `fin:${JSON.stringify([
+        f.geometry, f.rootChordM, f.tipChordM, f.semispanM, f.sweepDeg, f.thicknessM, R,
+      ])}`,
+      () => {
+        const g = new THREE.ExtrudeGeometry(shape, { depth: f.thicknessM, bevelEnabled: false, steps: 1 });
+        g.rotateZ(-Math.PI / 2); // (x,y) → (y,−x): kök ön kenar (0,0) korunur, kiriş −Y
+        const embed = Math.min(R * 0.8, f.rootChordM * 0.3);
+        g.translate(R - embed, 0, 0); // kök kirişi gövde yüzeyine göm
+        g.translate(0, 0, -f.thicknessM / 2); // kalınlığı ortala
+        return g;
+      },
+    );
     const cant = (f.cantDeg * Math.PI) / 180;
     for (let i = 0; i < f.count; i++) {
       const g = new THREE.Group();
@@ -161,7 +176,7 @@ function buildStageMesh(stage: StageConfig, colorIndex: number, opts: { showReco
 
   // Motor lülesi
   const nozzle = new THREE.Mesh(
-    new THREE.CylinderGeometry(R * 0.45, R * 0.8, 0.02, 16),
+    cachedGeom(`noz:${(R * 0.45).toFixed(4)}:${(R * 0.8).toFixed(4)}:16`, () => new THREE.CylinderGeometry(R * 0.45, R * 0.8, 0.02, 16)),
     new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.8 })
   );
   nozzle.position.y = -0.012;
@@ -170,7 +185,7 @@ function buildStageMesh(stage: StageConfig, colorIndex: number, opts: { showReco
   // Kurtarma paketi (şeffaf küçük kapsül) — burun bölmesinde
   if (opts.showRecovery && stage.recovery.type !== "none") {
     const rec = new THREE.Mesh(
-      new THREE.SphereGeometry(R * 0.5, 12, 8),
+      cachedGeom(`rec:${(R * 0.5).toFixed(4)}:12`, () => new THREE.SphereGeometry(R * 0.5, 12, 8)),
       new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.8, transparent: true, opacity: 0.4 })
     );
     rec.position.y = bodyLen + noseLen * 0.5;
@@ -368,6 +383,8 @@ export class RocketScene {
     this.scene.add(this.railGroup);
     this.scene.add(this.rocketGroup);
     this.buildFlameCones();
+    // Alev grubu setRocket'ta dispose edilmez (tek sefer kurulur, yeniden eklenir).
+    this.flameGroup.userData.noDispose = true;
     this.rocketGroup.add(this.flameGroup);
     this.scene.add(this.trajectoryMarkers);
 
@@ -1039,7 +1056,11 @@ export class RocketScene {
   // -------------------------------------------------------------------------
 
   setRocket(config: RocketConfig, _assembly: RocketAssembly) {
-    this.rocketGroup.remove(...this.rocketGroup.children);
+    // Eski kademe mesh'lerini yık (geometri/material sızıntısı olmasın);
+    // flameGroup tek sefer kurulur ve yeniden eklenir — dispose edilmez.
+    const oldChildren = [...this.rocketGroup.children];
+    this.rocketGroup.remove(...oldChildren);
+    for (const c of oldChildren) if (c !== this.flameGroup) disposeDeep(c);
     this.rocketGroup.add(this.flameGroup);
     this.windDeg = config.windDeg;
     this.railLen = config.railM ?? 1.2;
@@ -1047,7 +1068,7 @@ export class RocketScene {
     this.stageBottomLocalY = [];
     this.chuteState = "none";
     this.chuteProgress = 0;
-    this.chuteGroup.clear();
+    clearDisposed(this.chuteGroup);
 
     // Kademeleri alttan üste istifle: her kademenin tabanı (lüle) y=0'da,
     // burnu +Y'de. Sonraki (üst) kademe bir öncekinin burnunun üstüne biner.
@@ -1065,6 +1086,7 @@ export class RocketScene {
 
     // Booster'lar (ilk kademe gövdesi boyunca)
     this.rocketGroup.remove(this.boosterGroup);
+    disposeDeep(this.boosterGroup);
     this.boosterGroup = new THREE.Group();
     if (config.boosterCount > 0) {
       const s0 = config.stages[0];
@@ -1075,17 +1097,20 @@ export class RocketScene {
       for (let i = 0; i < config.boosterCount; i++) {
         const theta = (i * 2 * Math.PI) / config.boosterCount;
         const g = new THREE.Group();
-        const tube = new THREE.Mesh(new THREE.CylinderGeometry(bd / 2, bd / 2, len, 12), mat);
+        const tube = new THREE.Mesh(
+          cachedGeom(`btube:${(bd / 2).toFixed(4)}:${(bd / 2).toFixed(4)}:${len.toFixed(4)}:12`, () => new THREE.CylinderGeometry(bd / 2, bd / 2, len, 12)),
+          mat,
+        );
         tube.position.y = len / 2;
         g.add(tube);
         const cone = new THREE.Mesh(
-          new THREE.ConeGeometry(bd / 2, bd * 1.6, 12),
+          cachedGeom(`bcone:${(bd / 2).toFixed(4)}:${(bd * 1.6).toFixed(4)}:12`, () => new THREE.ConeGeometry(bd / 2, bd * 1.6, 12)),
           new THREE.MeshStandardMaterial({ color: 0xcc3333, roughness: 0.4 })
         );
         cone.position.y = len + bd * 0.8;
         g.add(cone);
         const nozzle = new THREE.Mesh(
-          new THREE.CylinderGeometry(bd * 0.3, bd * 0.55, 0.03, 10),
+          cachedGeom(`bnoz:${(bd * 0.3).toFixed(4)}:${(bd * 0.55).toFixed(4)}:10`, () => new THREE.CylinderGeometry(bd * 0.3, bd * 0.55, 0.03, 10)),
           new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 })
         );
         nozzle.position.y = -0.02;
@@ -1266,7 +1291,7 @@ export class RocketScene {
     if (this.chuteState === state) return;
     this.chuteState = state;
     this.chuteProgress = 0.02;
-    this.chuteGroup.clear();
+    clearDisposed(this.chuteGroup);
     const dia = state === "drogue" ? 0.15 : 0.5;
     const mat = new THREE.MeshStandardMaterial({
       map: this.makeChuteTexture(state === "drogue" ? "#ff8c2e" : "#e83d3d", "#f5f0e8"),
@@ -1275,17 +1300,21 @@ export class RocketScene {
       transparent: true,
       opacity: 0.96,
     });
-    const canopy = new THREE.Mesh(new THREE.SphereGeometry(dia, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), mat);
+    const canopy = new THREE.Mesh(
+      cachedGeom(`chute:${dia.toFixed(3)}:20`, () => new THREE.SphereGeometry(dia, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.62)),
+      mat,
+    );
     canopy.scale.y = 1.5;
     canopy.position.y = dia * 1.4;
     this.chuteGroup.add(canopy);
     for (let i = 0; i < 6; i++) {
       const a = (i * Math.PI * 2) / 6;
       const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(Math.cos(a) * dia * 0.8, dia * 1.4 - dia * 0.2, Math.sin(a) * dia * 0.8),
-          new THREE.Vector3(Math.cos(a) * 0.02, 0, Math.sin(a) * 0.02),
-        ]),
+        cachedGeom(`chuteline:${dia.toFixed(3)}:${i}`, () =>
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(Math.cos(a) * dia * 0.8, dia * 1.4 - dia * 0.2, Math.sin(a) * dia * 0.8),
+            new THREE.Vector3(Math.cos(a) * 0.02, 0, Math.sin(a) * 0.02),
+          ])),
         new THREE.LineBasicMaterial({ color: 0xdddddd })
       );
       this.chuteGroup.add(line);
@@ -1356,7 +1385,7 @@ export class RocketScene {
     if (this.dustRing) this.dustRing.visible = false;
     this.chuteState = "none";
     this.chuteProgress = 0;
-    this.chuteGroup.clear();
+    clearDisposed(this.chuteGroup);
     // Uçuş bitince follow modu kontrolleri kilitliyor — idle'ken geri aç
     this.controls.enabled = true;
   }
@@ -1381,14 +1410,17 @@ export class RocketScene {
     this.trajectoryMarkers.clear();
     if (!visible || samples.length < 2) return;
 
+    // GPU/çizgi bütçesi: telemetri 10 bin+ örneğe çıkabilir; eşit adımla alt örnekle.
+    const pts = downsample(samples, 1200);
+
     // İrtifaya göre renklendirilmiş yörünge: alçakta yeşil → yüksekte açık mavi
-    const maxAlt = Math.max(...samples.map((s) => s.pos[1]));
+    const maxAlt = Math.max(...pts.map((s) => s.pos[1]));
     const positions: number[] = [];
     const colors: number[] = [];
     const cLow = new THREE.Color(0x66aa44);
     const cMid = new THREE.Color(0xffcc33);
     const cHigh = new THREE.Color(0x8ec5ff);
-    for (const s of samples) {
+    for (const s of pts) {
       const f = maxAlt > 0.01 ? Math.min(1, s.pos[1] / maxAlt) : 0;
       const c = f < 0.5 ? cLow.clone().lerp(cMid, f * 2) : cMid.clone().lerp(cHigh, (f - 0.5) * 2);
       positions.push(s.pos[0], s.pos[1], s.pos[2]);
@@ -1530,6 +1562,9 @@ export class RocketScene {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.onResize);
+    // Sahne ağacındaki paylaşılmayan geometri/material'ları serbest bırak
+    // (cached/shared olanlar uygulama ömrü boyunca yaşar).
+    disposeDeep(this.scene);
     this.composer.dispose();
     this.renderer.dispose();
   }
