@@ -276,6 +276,8 @@ export class RocketScene {
   private stageBottomLocalY: number[] = [];
   /** Roket tabanının zemin üzerindeki yüksekliği (ray tepesi) */
   private readonly padY = 1.45;
+  /** Yapılandırmadaki ray uzunluğu (simülasyon ray boyunu sayar) */
+  private railLen = 1.2;
   /** Alev/dumanın çıktığı aktif (en alt görünür) kademe indeksi */
   private activeBottomIdx = 0;
   private boosterGroup = new THREE.Group();
@@ -307,7 +309,6 @@ export class RocketScene {
   private boosterFlameGroups: THREE.Group[] = [];
   private flameIntensity = 0;
   private windDeg = 0;
-  private clock = new THREE.Clock();
   private raf = 0;
   private disposed = false;
   private onResize: () => void;
@@ -1041,6 +1042,7 @@ export class RocketScene {
     this.rocketGroup.remove(...this.rocketGroup.children);
     this.rocketGroup.add(this.flameGroup);
     this.windDeg = config.windDeg;
+    this.railLen = config.railM ?? 1.2;
     this.stageGroups = [];
     this.stageBottomLocalY = [];
     this.chuteState = "none";
@@ -1108,8 +1110,15 @@ export class RocketScene {
     if (!sample) return;
     const p = sample.pos;
     const rocket = this.rocketGroup;
-    // Örnek konum zemin tabanlıdır; roket rayda dururken padY yüksekliğindedir.
-    rocket.position.set(p[0], p[1] + this.padY, p[2]);
+    // Simülasyon konumu zemin tabanlıdır (rayda 0'dan ray boyuna yükselir).
+    // Ray üzerindeyken roket padY'de (ray tepesinde) görünür; ray çıkışından
+    // sonra zemin yüksekliğine padY-railLen ofseti eklenir ki konum sürekli kalsın.
+    const onRail = sample.onRail;
+    rocket.position.set(
+      p[0],
+      onRail ? this.padY : p[1] + this.padY - this.railLen,
+      p[2],
+    );
 
     // Yönelim: uçuşta hız yönünde +Y; paraşüt açılınca sarkıç fiziği devreye
     // girer (update() içinde salınarak dikleşir) — ani dikleşme doğal değil.
@@ -1508,8 +1517,8 @@ export class RocketScene {
   private loop = () => {
     if (this.disposed) return;
     this.raf = requestAnimationFrame(this.loop);
-    const dt = Math.min(this.clock.getDelta(), 0.05);
-    this.update(dt, 0);
+    // Güncelleme RocketView'ın kendi rAF döngüsünden sürülür; burada sadece
+    // render edilir (update'teki partikül/kamera adımları iki kez ilerlemesin).
     this.composer.render();
   };
 

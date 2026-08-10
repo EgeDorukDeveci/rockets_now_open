@@ -144,7 +144,7 @@ export function bodyMass(c: BodyConfig): ComponentMass {
   const rInner = Math.max(rOuter - c.wallM, 0);
   const vol = PI * (rOuter * rOuter - rInner * rInner) * c.lengthM;
   const mass = vol * mat.density;
-  const paintMass = c.paint ? c.lengthM * PI * c.diameterM * 0.06 / 1000 : 0; // ~60 g/m² boya
+  const paintMass = c.paint ? c.lengthM * PI * c.diameterM * 0.06 : 0; // ~60 g/m² = 0.06 kg/m² boya
   const cost = c.lengthM * mat.pricePerMeter + (c.paint ? 5 : 0);
   // CG: gövdenin ortası, burun ucundan (üst kenar + L/2) — üst kenar stack tipinde 0 olacak
   return { massKg: mass + paintMass, cg: c.lengthM / 2, cost, note: "Gövde tüpü" };
@@ -184,10 +184,9 @@ export function finPlanformArea(f: FinConfig): number {
   switch (f.geometry) {
     case "rectangular":
     case "swept":
-      return ((cr + ct) / 2) * s;
     case "clippedDelta":
-    case "delta":
-      return (cr * s) / 2 + ((ct * s) / 2) * 0.5; // delta: üçgen; clipped: küçük dikdörtgen
+    case "delta": // delta: tipChord=0 → (cr+0)/2·s = cr·s/2 (üçgen)
+      return ((cr + ct) / 2) * s;
     case "elliptical":
       return (PI / 4) * cr * s;
     case "rounded":
@@ -428,9 +427,12 @@ export function assembleRocket(config: RocketConfig): RocketAssembly {
   const stabilityCal = (cpM - cgStackTip) / Math.max(diameter, 1e-9);
 
   // ---- İtki/ağırlık ----
-  const totalThrust = config.stages.reduce((a, s) => a + stageThrust(s.motor, 1), 0) +
+  // Kalkış anında yalnızca ilk (en alt) kademe + booster'lar yanar; üst
+  // kademe motorları yörüngede ateşlendiği için TWR'ye katılmaz.
+  const firstStageIdx = n - 1;
+  const liftoffThrust = stageThrust(config.stages[firstStageIdx].motor, 1) +
     (config.boosterCount > 0 ? stageThrust(config.boosterMotor, 1) * config.boosterCount : 0);
-  const twr = totalThrust / (liftoffMass * 9.80665);
+  const twr = liftoffThrust / (liftoffMass * 9.80665);
 
   // ---- Sürükleme parametreleri ----
   let wetted = 0;

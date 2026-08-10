@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useStore } from "../store";
 import { RocketConfig } from "../types";
+import { sanitizeConfig } from "../sanitize";
 import DesignEditor from "./DesignEditor";
 import { HudPanel } from "./HudPanel";
 import Controls from "./Controls";
@@ -42,9 +43,7 @@ function TechTopbar({ onBack }: { onBack: () => void }) {
         <input
           className="name-input tech-name-input"
           value={rocket.name}
-          onChange={(e) =>
-            useTechStore.getState().updateRocket({ ...useTechStore.getState().rocket, name: e.target.value })
-          }
+          onChange={(e) => useTechStore.getState().renameRocket(e.target.value)}
           placeholder="Roket adı"
         />
         <select
@@ -101,10 +100,18 @@ function exportJSON(config: RocketConfig) {
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
+  // Türkçe ve diğer Unicode harfler korunur; dosya sistemi için güvenli karakter kümesi
+  const safeName = config.name
+    .replace(/[^\p{L}\p{N}_\- ]/gu, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    || "rokets";
   a.href = url;
-  a.download = `${config.name.replace(/[^\w\- ]/g, "").replace(/\s+/g, "-")}.sloprocket.json`;
+  a.download = `${safeName}.sloprocket.json`;
   a.click();
-  URL.revokeObjectURL(url);
+  // Firefox: indirme başlamadan revoke etme
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export default function App() {
@@ -146,9 +153,11 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result)) as RocketConfig;
-        if (!parsed || !Array.isArray(parsed.stages) || parsed.stages.length === 0) throw new Error("bad");
-        updateConfig(parsed);
+        const parsed = JSON.parse(String(reader.result)) as unknown;
+        if (!parsed || typeof parsed !== "object") throw new Error("bad");
+        // Derin doğrulama + klamplama: bozuk/eksik alanlar varsayılanlarla
+        // doldurulur, limit dışı değerler sınırlara çekilir, kademeler 3'e kırpılır.
+        updateConfig(sanitizeConfig(parsed));
       } catch {
         alert("Geçersiz tasarım dosyası.");
       }

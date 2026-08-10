@@ -50,7 +50,7 @@ describe("tech store", () => {
     s.runSimulation();
     const st = useTechStore.getState();
     expect(st.result).not.toBeNull();
-    expect(st.status).toBe("ended");
+    expect(st.status).toBe("running"); // oynatım döngüsü ilerletir, bitince "ended"
     expect(st.result!.samples.length).toBeGreaterThan(10);
     expect(st.result!.summary.apogeeM).toBeGreaterThan(150);
     expect(st.result!.summary.apogeeM).toBeLessThan(250);
@@ -76,5 +76,39 @@ describe("tech store", () => {
     const st = useTechStore.getState();
     expect(st.result!.samples.length).toBe(0);
     expect(st.currentSample).toBeNull();
+  });
+
+  it("patchConditions sonucu geçersiz kılar (stale)", () => {
+    const s = useTechStore.getState();
+    s.runSimulation();
+    s.patchConditions({ windSpeedMps: 5 });
+    const st = useTechStore.getState();
+    expect(st.result!.samples.length).toBe(0);
+    expect(st.currentSample).toBeNull();
+  });
+
+  it("addComponent sonucu geçersiz kılar (stale)", () => {
+    const s = useTechStore.getState();
+    s.runSimulation();
+    const tube = useTechStore.getState().rocket.stages[0].components.find((c) => c.kind === "bodytube")!;
+    s.addComponent(tube.id, "centeringring");
+    const st = useTechStore.getState();
+    expect(st.result!.samples.length).toBe(0);
+    expect(st.currentSample).toBeNull();
+  });
+
+  it("paused durumu tekrar run edince simTime sıfırlanır", () => {
+    const s = useTechStore.getState();
+    s.runSimulation();
+    const st = useTechStore.getState();
+    const mid = st.result!.samples[st.result!.samples.length - 1].t / 2;
+    st.setSimTime(mid);
+    st.setStatus("paused");
+    st.setStatus("running");
+    st.runSimulation();
+    const st2 = useTechStore.getState();
+    expect(st2.simTime).toBe(0);
+    expect(st2.status).toBe("running");
+    expect(st2.currentSample!.t).toBeLessThan(0.05);
   });
 });

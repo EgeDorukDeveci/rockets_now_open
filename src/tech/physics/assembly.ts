@@ -250,6 +250,9 @@ function placeList(
     if (c.kind === "bodytube") {
       aft = x + g.length;
       front = x;
+      // İç bileşenler gövde tüpünün ön ucundan ölçülür ve istiflemeyi
+      // ilerletmez; alt ağacı gövdeyle birlikte yerleştir.
+      placeList(c.children, x, x, out);
     } else if (!radial && !internal) {
       aft = x + g.length;
     }

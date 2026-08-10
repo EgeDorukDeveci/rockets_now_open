@@ -55,6 +55,8 @@ export interface TelemetrySample {
   massKg: number;
   pos: [number, number, number];
   vel: [number, number, number];
+  /** Ray üzerinde mi (raydan çıkışa kadar true) */
+  onRail: boolean;
 }
 
 export interface FlightResult {
@@ -145,16 +147,23 @@ export function simulateFlight(params: FlightParams): FlightResult {
   // --- Motor kaynakları ---
   const sources: MotorSource[] = [];
   let prevBurnout = 0;
-  // Booster'lar: t=0'da
+  // Booster'lar: t=0'da. NOT: boosterSpecs tek bir booster'ın motor listesidir
+  // (count kopyaları dahil); boosterMasses[i] ise tek bir booster'ın toplam
+  // kütlesidir. Kuru kütle = boosterTotal - (tek booster'ın yakıtı).
   const boosterSpecs = config.boosterCount > 0 ? resolveMotors(config.boosterMotor.choice) : [];
   const boosterProp = boosterSpecs.reduce((a, s) => a + s.propellant, 0);
   const boosterTotal = assembly.boosterMasses.length > 0 ? assembly.boosterMasses[0] : 0;
   const boosterBurnout = boosterSpecs.length > 0 ? Math.max(...boosterSpecs.map((s) => s.burnTime)) : Infinity;
   const boosterThrottle = Math.max(config.boosterMotor.throttle, 0.05);
   const boosterBurnEff = boosterBurnout / boosterThrottle;
+  // Toplam düşen kütle = boosterCount × (tek booster kuru kütlesi); her
+  // motor kaynağı (booster başına boosterSpecs.length adet) eşit pay düşürür.
+  const boosterDryPerSource = boosterSpecs.length > 0
+    ? Math.max(boosterTotal - boosterProp, 0) / boosterSpecs.length
+    : 0;
   for (const sp of boosterSpecs) {
     for (let i = 0; i < config.boosterCount; i++) {
-      sources.push({ spec: sp, t0: 0, dropAt: boosterBurnEff + 0.6, dropMass: (boosterTotal - boosterProp) / config.boosterCount, throttle: boosterThrottle, burnTime: boosterBurnEff });
+      sources.push({ spec: sp, t0: 0, dropAt: boosterBurnEff + 0.6, dropMass: boosterDryPerSource, throttle: boosterThrottle, burnTime: boosterBurnEff });
     }
   }
   // Kademeler: uçuş sırasıyla
@@ -170,12 +179,52 @@ export function simulateFlight(params: FlightParams): FlightResult {
     const burn = specs.length > 0 ? Math.max(...specs.map((s) => s.burnTime)) : 0;
     const throt = Math.max(stage.motor.throttle, 0.05);
     const burnEff = burn / throt;
-    // Kademenin kuru kütlesi (sönüm + ayrımda düşer)
-    const stageDry = assembly.stageMasses[stageIdx] - specs.reduce((a, s) => a + s.propellant, 0);
+    // Kademenin kuru kütlesi (sönüm + ayrımda düşer): tüm motor kopyaları
+    // birlikte bir kez düşürülür — her kaynak eşit pay alır (toplam = stageDry).
+    const stageProp = specs.reduce((a, s) => a + s.propellant, 0);
+    const stageDry = Math.max(assembly.stageMasses[stageIdx] - stageProp, 0);
+    const dropPerSource = specs.length > 0 ? stageDry / specs.length : 0;
     for (const sp of specs) {
-      sources.push({ spec: sp, t0, dropAt: t0 + burnEff + sepDelay, dropMass: isLast ? 0 : stageDry, throttle: throt, burnTime: burnEff });
+      sources.push({ spec: sp, t0, dropAt: t0 + burnEff + sepDelay, dropMass: isLast ? 0 : dropPerSource, throttle: throt, burnTime: burnEff });
     }
     prevBurnout = t0 + burnEff;
+  }
+
+  // Motorsuz roket: kaynak yoksa -Infinity/erken kurtarma açılışı yerine
+  // erken abort döndür.
+  if (sources.length === 0) {
+    const emptyState: FlightState = {
+      t: 0,
+      pos: [0, 0, 0],
+      vel: [0, 0, 0],
+      mass: assembly.liftoffMassKg,
+      boosters: false,
+      deployed: false,
+      drogue: false,
+      main: false,
+      onRail: true,
+      railDist: 0,
+      roll: 0,
+      rollRate: 0,
+    };
+    const msg = "MOTOR YOK: Fırlatma iptal edildi";
+    return {
+      state: emptyState,
+      events: [
+        { id: "preflight", t: 0, altM: 0, velMps: 0, mach: 0, message: "Ön uçuş hazır" },
+        { id: "abort", t: 0, altM: 0, velMps: 0, mach: 0, message: msg },
+      ],
+      telemetry: [{
+        t: 0, altM: 0, velMps: 0, vertMps: 0, accelMps2: 0, gForce: 0,
+        mach: 0, q: 0, thrustN: 0, propMassKg: 0, massKg: assembly.liftoffMassKg,
+        pos: [0, 0, 0], vel: [0, 0, 0],
+        onRail: true,
+      }],
+      maxAltM: 0, maxVelMps: 0, maxMach: 0, maxG: 0, maxQ: 0,
+      driftM: 0, landingVelMps: 0, flightTimeS: 0,
+      success: false,
+      message: msg,
+    };
   }
 
   // --- Durum ---
@@ -300,6 +349,7 @@ export function simulateFlight(params: FlightParams): FlightResult {
       massKg: st.mass,
       pos: [st.pos[0], st.pos[1], st.pos[2]],
       vel: [st.vel[0], st.vel[1], st.vel[2]],
+      onRail: st.onRail,
     });
   };
 
@@ -318,7 +368,9 @@ export function simulateFlight(params: FlightParams): FlightResult {
   let message = "";
   let landingVel = 0;
 
-  const lastBurnoutTime = Math.max(...sources.map((s) => s.t0 + s.burnTime));
+  // Motor yoksa 0 (erken dönüldüğü için burada mutlaka >= 1 kaynak vardır,
+  // ancak savunmacı guard boş dizide -Infinity üretimini engeller).
+  const lastBurnoutTime = sources.length ? Math.max(...sources.map((s) => s.t0 + s.burnTime)) : 0;
 
   let steps = 0;
   const maxSteps = 4_000_000;

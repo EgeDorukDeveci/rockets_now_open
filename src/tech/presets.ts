@@ -132,10 +132,11 @@ function buildStage(p: StageParams): TechStage {
     children.push(ring);
   }
 
+  // Kurtarma sistemi + şok ipi burun bölmesinde istiflenir (CG'yi öne çeker).
   const cord = makeComponent("shockcord") as ShockCord;
   cord.name = "Şok İpi";
   cord.cordLengthM = p.cord ?? 0.6;
-  cord.axialOffsetM = Math.max(0, mountOffset - 0.02);
+  cord.axialOffsetM = 0.01;
   cord.materialId = p.bodyMat === "fiberglass" ? "kevlar" : "elastic";
   children.push(cord);
 
@@ -146,7 +147,7 @@ function buildStage(p: StageParams): TechStage {
     ch.deployEvent = p.deployEvent ?? "ejection";
     ch.deployDelayS = 0;
     ch.lineLengthM = Math.min(0.6, (p.chuteDia ?? 0.3) * 1.2);
-    ch.axialOffsetM = Math.max(0, mountOffset - 0.03);
+    ch.axialOffsetM = 0.02;
     ch.materialId = "ripstop";
     children.push(ch);
   } else if (p.recovery === "streamer") {
@@ -154,7 +155,7 @@ function buildStage(p: StageParams): TechStage {
     st.name = "Şerit";
     st.stripLengthM = p.streamerLen ?? 0.5;
     st.stripWidthM = p.streamerW ?? 0.05;
-    st.axialOffsetM = Math.max(0, mountOffset - 0.03);
+    st.axialOffsetM = 0.02;
     st.materialId = "ripstop";
     children.push(st);
   }
@@ -329,19 +330,19 @@ export const TECH_PRESETS: TechPreset[] = [
         bodyLen: 0.45, dia: 0.1, wall: 0.002, bodyMat: "aluminum",
         noseLen: 0.04, noseShape: "conical",
         motor: "G30-7W",
-        fins: { count: 4, rootChord: 0.14, tipChord: 0.08, sweep: 0.03, height: 0.09, thickness: 0.004, material: "aluminum", xPos: -0.2 },
+        fins: { count: 4, rootChord: 0.14, tipChord: 0.08, sweep: 0.03, height: 0.09, thickness: 0.004, material: "aluminum", xPos: -0.17 },
         separation: "burnout",
       });
       const s2 = buildStage({
         name: "S-II",
-        bodyLen: 0.3, dia: 0.08, wall: 0.002, bodyMat: "aluminum",
+        bodyLen: 0.3, dia: 0.08, wall: 0.001, bodyMat: "cardboard",
         noseLen: 0.08, noseShape: "conical",
         motor: "F24-6W",
         separation: "burnout",
       });
       const s3 = buildStage({
         name: "S-IVB",
-        bodyLen: 0.22, dia: 0.065, wall: 0.002, bodyMat: "aluminum",
+        bodyLen: 0.22, dia: 0.065, wall: 0.001, bodyMat: "cardboard",
         noseLen: 0.208, noseShape: "ogive",
         motor: "E20-5W",
         recovery: "parachute", chuteDia: 0.6, deployEvent: "apogee",
@@ -360,12 +361,12 @@ export const TECH_PRESETS: TechPreset[] = [
         bodyLen: 0.8, dia: 0.08, wall: 0.002, bodyMat: "aluminum",
         noseLen: 0.048, noseShape: "conical",
         motor: "G30-7W",
-        fins: { count: 4, rootChord: 0.16, tipChord: 0.06, sweep: 0.04, height: 0.12, thickness: 0.004, material: "aluminum", xPos: -0.22 },
+        fins: { count: 4, rootChord: 0.16, tipChord: 0.06, sweep: 0.04, height: 0.12, thickness: 0.004, material: "aluminum", xPos: -0.19 },
         separation: "burnout",
       });
       const s2 = buildStage({
         name: "Uzay Aracı",
-        bodyLen: 0.6, dia: 0.05, wall: 0.002, bodyMat: "aluminum",
+        bodyLen: 0.6, dia: 0.05, wall: 0.001, bodyMat: "cardboard",
         noseLen: 0.15, noseShape: "ogive",
         motor: "E20-5W",
         recovery: "parachute", chuteDia: 1.5, deployEvent: "apogee",

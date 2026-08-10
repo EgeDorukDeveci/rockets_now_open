@@ -13,7 +13,7 @@ import {
 import { TechFlightResult, TechSimSample, sampleAtTime, simulate } from "./physics/simulator";
 
 export type TechUiTab = "analysis" | "drag" | "simulation" | "motor";
-export type TechStatus = "idle" | "running" | "ended";
+export type TechStatus = "idle" | "running" | "paused" | "ended";
 export type TechCameraMode = "follow" | "pad" | "free";
 
 /** Simülasyonu resetlemeden bileşen değişikliği yapılınca sonucu geçersiz kılar. */
@@ -71,6 +71,7 @@ export interface TechSimState {
   showGrid: boolean;
 
   updateRocket: (r: TechRocket) => void;
+  renameRocket: (name: string) => void;
   patchConditions: (patch: Partial<TechConditions>) => void;
   selectComponent: (id: string | null) => void;
   updateComponent: (id: string, patch: Record<string, unknown>) => void;
@@ -100,16 +101,29 @@ export const useTechStore = create<TechSimState>((set, get) => ({
   showGrid: true,
 
   updateRocket: (r) => set({ rocket: r }),
+  renameRocket: (name) => set({ rocket: { ...get().rocket, name } }),
   patchConditions: (patch) =>
-    set({ rocket: { ...get().rocket, conditions: { ...get().rocket.conditions, ...patch } } }),
+    set({
+      rocket: { ...get().rocket, conditions: { ...get().rocket.conditions, ...patch } },
+      result: staleResult(get().result),
+      ...STALE,
+    }),
   selectComponent: (id) => set({ selectedId: id }),
   updateComponent: (id, patch) => {
     const rocket = get().rocket;
+    let found = false;
     const stages = rocket.stages.map((st) => ({
       ...st,
-      components: st.components.map((c) => replaceComponentInTree(c, id, patch)),
+      components: st.components.map((c) => {
+        const out = replaceComponentInTree(c, id, patch);
+        if (out !== c) found = true;
+        return out;
+      }),
     }));
-    set({ rocket: { ...rocket, stages }, result: staleResult(get().result), ...STALE });
+    set({
+      rocket: { ...rocket, stages },
+      ...(found ? { result: staleResult(get().result), ...STALE } : {}),
+    });
   },
   addComponent: (parentId, kind) => {
     const comp = makeComponent(kind);
@@ -130,7 +144,8 @@ export const useTechStore = create<TechSimState>((set, get) => ({
     const result = simulate(rocket);
     set({
       result,
-      status: "ended",
+      // "running": TechView oynatım döngüsü saati ilerletir; uç sonunda "ended" olur.
+      status: result.samples.length ? "running" : "ended",
       simTime: 0,
       currentSample: result.samples.length ? result.samples[0] : null,
     });

@@ -10,7 +10,7 @@ import { barrowmanFins, barrowmanNose } from "./barrowman";
 import { classFromImpulse } from "./motors/types";
 import { ESTES_MOTORS } from "./motors/catalog";
 import { curveTotalImpulse, generateThrustCurve } from "./motors/curve";
-import { assembleRocket } from "./rocket";
+import { assembleRocket, bodyMass, finPlanformArea, stageThrust } from "./rocket";
 import { simulateFlight } from "./trajectory";
 import { defaultStage, RocketConfig } from "../types";
 
@@ -232,5 +232,99 @@ describe("Kısma (throttle)", () => {
     const velFull = full.telemetry.find((s) => s.t >= (vFull?.t ?? 0))?.velMps ?? 0;
     const velHalf = throttled.telemetry.find((s) => s.t >= (vHalf?.t ?? 0))?.velMps ?? 0;
     expect(Math.abs(velHalf - velFull) / Math.max(velFull, 1)).toBeLessThan(0.25);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regresyon: kritik bug düzeltmeleri (Faz 1)
+// ---------------------------------------------------------------------------
+
+describe("Regresyon: motor düzeltmeleri", () => {
+  it("motorsuz roket -Infinity üretmez; abort döner ve 'başarılı' olmaz", () => {
+    const cfg = alphaConfig();
+    cfg.stages[0].motor.choice = { kind: "estes", id: "C6-7", count: 0 }; // kaynak yok
+    const a = assembleRocket(cfg);
+    const result = simulateFlight({ assembly: a, throttle: 1, prediction: true });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("MOTOR YOK");
+    expect(result.telemetry.length).toBeGreaterThanOrEqual(1);
+    for (const s of result.telemetry) {
+      expect(Number.isFinite(s.altM)).toBe(true);
+      expect(Number.isNaN(s.massKg)).toBe(false);
+    }
+    expect(result.events.some((e) => e.id === "abort")).toBe(true);
+  });
+
+  it("booster kütle düşümü tüm booster kuru kütlesini bırakır (count≠boosterCount)", () => {
+    // Sadece booster'lar yanar; kademe motoru yok (count 0). 4 booster × (A8-3×2).
+    const cfg = alphaConfig();
+    cfg.stages[0].motor.choice = { kind: "estes", id: "C6-7", count: 0 };
+    cfg.boosterCount = 4;
+    cfg.boosterMotor = { choice: { kind: "estes", id: "A8-3", count: 2 }, throttle: 1 };
+    const a = assembleRocket(cfg);
+    const result = simulateFlight({ assembly: a, throttle: 1, prediction: true, vacuum: true });
+    // Hepsi kullanılıp düşülürse nihai kütle ~ ekstra kuru kütle olmamalı:
+    const leftover = result.state.mass;
+    // Esteri booster toplamının %10'undan az kalmış olmalı
+    expect(leftover).toBeLessThan(a.boosterMasses.reduce((s, m) => s + m, 0) * 0.1 + a.stageMasses[0]);
+    // Düşülen toplam ≈ tüm booster kütlesi (yakıt yakılıp kuru kütle düşülünce)
+    const removed = a.liftoffMassKg - result.state.mass;
+    const allBoosters = a.boosterMasses.reduce((s, m) => s + m, 0);
+    expect(removed).toBeGreaterThan(allBoosters * 0.9);
+    expect(removed).toBeLessThan(allBoosters * 1.1);
+  });
+
+  it("booster kütlesi motora sayısı 1 iken de doğru düşer (kontrol)", () => {
+    const cfg = alphaConfig();
+    cfg.stages[0].motor.choice = { kind: "estes", id: "C6-7", count: 0 };
+    cfg.boosterCount = 2; // 0 | 2 | 4 tipine uygun
+    cfg.boosterMotor = { choice: { kind: "estes", id: "A8-3", count: 1 }, throttle: 1 };
+    const a = assembleRocket(cfg);
+    const result = simulateFlight({ assembly: a, throttle: 1, prediction: true, vacuum: true });
+    expect(result.state.mass).toBeLessThan(a.boosterMasses.reduce((s, m) => s + m, 0) * 0.15 + a.stageMasses[0]);
+  });
+});
+
+describe("Regresyon: boya kütlesi (60 g/m²)", () => {
+  it("boyalı/boyasız farkı formülle uyuşur", () => {
+    const cfg = alphaConfig();
+    const body = cfg.stages[0].body;
+    const painted = bodyMass({ ...body, paint: true });
+    const raw = bodyMass({ ...body, paint: false });
+    const expected = body.lengthM * Math.PI * body.diameterM * 0.06;
+    expect(painted.massKg - raw.massKg).toBeCloseTo(expected, 6);
+    // Eski hata ~1.3 mg veriyordu; gerçek ~1.3 g
+    expect(painted.massKg - raw.massKg).toBeGreaterThan(expected * 0.9);
+  });
+});
+
+describe("Regresyon: kanat planform alanı", () => {
+  it("clippedDelta ve delta trapez/üçgen formülüne uyar", () => {
+    const base = alphaConfig().stages[0].fins;
+    const clipped = finPlanformArea({ ...base, geometry: "clippedDelta", rootChordM: 0.1, tipChordM: 0.06, semispanM: 0.05 });
+    expect(clipped).toBeCloseTo((0.1 + 0.06) / 2 * 0.05, 6); // trapezoid
+    const delta = finPlanformArea({ ...base, geometry: "delta", rootChordM: 0.1, tipChordM: 0, semispanM: 0.05 });
+    expect(delta).toBeCloseTo(0.1 / 2 * 0.05, 6); // üçgen
+  });
+});
+
+describe("Regresyon: TWR yalnızca kalkış anı itkisini sayar", () => {
+  it("çok kademede üst kademe motoru TWR'ye katılmaz", () => {
+    const cfg = alphaConfig();
+    const bottom = defaultStage();
+    bottom.body.lengthM = 0.2;
+    bottom.motor.choice = { kind: "estes", id: "D12-5", count: 1 };
+    const top = defaultStage();
+    top.body.lengthM = 0.1;
+    top.motor.choice = { kind: "estes", id: "D12-5", count: 1 };
+    cfg.stages = [top, bottom];
+    cfg.boosterCount = 0;
+    const a = assembleRocket(cfg);
+    const twrCalc = a.twr;
+    const w = a.liftoffMassKg * 9.80665;
+    const onlyBottom = stageThrust(cfg.stages[1].motor) / w;
+    const inclTop = (stageThrust(cfg.stages[0].motor) + stageThrust(cfg.stages[1].motor)) / w;
+    expect(twrCalc).toBeCloseTo(onlyBottom, 6);
+    expect(twrCalc).toBeLessThan(inclTop);
   });
 });

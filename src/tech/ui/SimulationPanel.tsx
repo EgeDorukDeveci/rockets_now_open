@@ -1,27 +1,47 @@
 // Simülasyon paneli: fırlatma koşulları, çalıştırma, özet, grafikler ve arama.
 
+import { useState } from "react";
 import { useTechStore } from "../store";
 import { Chart } from "./charts";
 
 const fmt = (v: number, digits = 1): string => (Number.isFinite(v) ? v.toFixed(digits) : "—");
 
-function Num({ label, value, onChange, unit, step }: {
+function Num({ label, value, onChange, unit, step, min, max }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   unit?: string;
   step?: number;
+  min?: number;
+  max?: number;
 }) {
+  // Yerel taslak: yazarken akıcı, blur'da doğrulanmış/kısıtlı değer onaylanır.
+  const [draft, setDraft] = useState<string | null>(null);
+  const clamp = (v: number) => {
+    let out = v;
+    if (min !== undefined && out < min) out = min;
+    if (max !== undefined && out > max) out = max;
+    return out;
+  };
+  const shown = draft ?? (Number.isFinite(value) ? String(+value.toFixed(4)) : "0");
   return (
     <label className="cf">
       <span>{label}</span>
       <input
         type="number"
-        value={value >= 0 && value < 1 ? value.toPrecision(3) : value.toFixed(3)}
+        value={shown}
         step={step ?? 0.01}
         onChange={(e) => {
-          const v = parseFloat(e.target.value);
+          const raw = e.target.value;
+          setDraft(raw);
+          const v = parseFloat(raw);
           if (Number.isFinite(v)) onChange(v);
+        }}
+        onBlur={() => {
+          setDraft(null);
+          const raw = draft ?? String(value);
+          const v = parseFloat(raw);
+          if (Number.isFinite(v)) onChange(clamp(v));
         }}
       />
       {unit && <em>{unit}</em>}
@@ -125,12 +145,19 @@ function RunControls() {
   const runSimulation = useTechStore((s) => s.runSimulation);
   const resetSim = useTechStore((s) => s.resetSim);
   const status = useTechStore((s) => s.status);
+  const setStatus = useTechStore((s) => s.setStatus);
   return (
     <div className="sim-controls">
-      <button className="btn launch" onClick={runSimulation}>🚀 SİMÜLASYONU ÇALIŞTIR</button>
+      {status === "running" ? (
+        <button className="btn launch" onClick={() => setStatus("paused")}>⏸ DURDUR</button>
+      ) : status === "paused" ? (
+        <button className="btn launch" onClick={() => setStatus("running")}>▶ DEVAM</button>
+      ) : (
+        <button className="btn launch" onClick={runSimulation}>🚀 SİMÜLASYONU ÇALIŞTIR</button>
+      )}
       <button className="btn small" onClick={resetSim}>Sıfırla</button>
-      <span className={`sim-status chip ${status === "ended" ? "ok" : status === "running" ? "warn" : ""}`}>
-        {status === "running" ? "ÇALIŞIYOR" : status === "ended" ? "TAMAMLANDI" : "HAZIR"}
+      <span className={`sim-status chip ${status === "ended" ? "ok" : status === "running" || status === "paused" ? "warn" : ""}`}>
+        {status === "running" ? "ÇALIŞIYOR" : status === "paused" ? "DURAKLATILDI" : status === "ended" ? "TAMAMLANDI" : "HAZIR"}
       </span>
     </div>
   );
@@ -142,6 +169,13 @@ function SummaryGrid() {
     return (
       <div className="panel-empty">
         Henüz sonuç yok — koşulları ayarlayıp simülasyonu çalıştırın.
+      </div>
+    );
+  }
+  if (result.samples.length === 0) {
+    return (
+      <div className="panel-empty">
+        Tasarım değişti — sonucu güncellemek için simülasyonu yeniden çalıştırın.
       </div>
     );
   }

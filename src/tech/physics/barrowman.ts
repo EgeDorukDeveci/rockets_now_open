@@ -1,7 +1,7 @@
 // Genişletilmiş Barrowman: bileşen bazlı Cn/CP analizi.
 // Kanat CP'si: MAC üzerinde çeyrek hat (OpenRocket techdoc eq. 3.33-3.34).
-// Kanat CN eğimi: Diederich/Polhamus sonlu açıklık formülü
-// CLα = 2π·AR / (2 + √(AR² + 4)); çok kanat için Σ sin²Λ normalizasyonu.
+// Kanat CN eğimi: klasik Barrowman formülü (casual fizik ile aynı):
+// CN = interference · 4·n·(s/d)² / (1 + √(1 + (2·lf/(cr+ct))²))
 // Gövde (body lift) subsonik yaklaşık 0; burun CN ≈ 2.
 
 import {
@@ -40,13 +40,47 @@ const AXIAL_KINDS = new Set([
 
 const PI = Math.PI;
 
-/** Diederich/Polhamus: ters açıklığı düşük kanat eğimi (rad⁻¹). */
-function clAlpha(area: number, span: number): number {
-  const AR = (span * span) / Math.max(area, 1e-12);
-  return (2 * PI * AR) / (2 + Math.sqrt(AR * AR + 4));
+/** Klasik Barrowman kanat CN'si (casual ile birebir; n kanat seti toplamı).
+ *  Düşük en-boy oranı ve gövde etkileşimi için OpenRocket tarzı marj düzeltmesi (×1.3)
+ *  uygulanır: klasik formül küçük kanatlarda CN'yi olduğundan düşük verir. */
+function barrowmanFinCn(
+  rootChord: number,
+  tipChord: number,
+  semispan: number,
+  sweep: number,
+  count: number,
+  bodyRadius: number,
+): number {
+  const cr = Math.max(rootChord, 1e-6);
+  const ct = Math.max(tipChord, 1e-6);
+  const s = Math.max(semispan, 1e-6);
+  const d = 2 * bodyRadius;
+  const xr = sweep + (ct - cr) / 2;
+  const lf = Math.sqrt(xr * xr + s * s);
+  const interference = (1 + bodyRadius / Math.max(s + bodyRadius, 1e-12)) ** 2;
+  return (
+    interference *
+    ((4 * count * (s / Math.max(d, 1e-12)) ** 2) /
+      (1 + Math.sqrt(1 + (2 * lf / Math.max(cr + ct, 1e-12)) ** 2))) *
+    1.3
+  );
 }
 
-/** Çok kanatlı yön normalizasyonu: Σ sin²Λ = N/2. */
+/** Klasik Barrowman kanat CP ofseti (kök kiriş ön kenarından, MAC çeyrek hattı). */
+function barrowmanFinCpOff(
+  rootChord: number,
+  tipChord: number,
+  sweep: number,
+): number {
+  const cr = Math.max(rootChord, 1e-6);
+  const ct = Math.max(tipChord, 1e-6);
+  return (
+    (sweep / 3) * ((cr + 2 * ct) / (cr + ct)) +
+    (1 / 6) * (cr + ct - (cr * ct) / (cr + ct))
+  );
+}
+
+/** Çok kanatlı yön normalizasyonu: Σ sin²Λ = N/2. (Yalnız serbest planformda.) */
 function orientationFactor(count: number): number {
   return count / 2;
 }
@@ -135,31 +169,31 @@ export function analyzeBarrowman(rocket: TechRocket): BarrowmanResult {
           emit(c, 0.5, x + c.lengthM * 0.3);
           break;
         case "trapezoidfin": {
-          const Cr = Math.max(c.rootChordM, 1e-6);
-          const area = ((Cr + c.tipChordM) / 2) * c.heightM;
-          const cpOff = (c.sweepLengthM / 3) * (Cr + 2 * c.tipChordM) / (Cr + c.tipChordM)
-            + (1 / 6) * (Cr * Cr + c.tipChordM * c.tipChordM + Cr * c.tipChordM) / (Cr + c.tipChordM);
-          const cn1 = (area / Sref) * clAlpha(area, c.heightM);
-          emit(c, cn1 * orientationFactor(c.finCount), x + cpOff);
+          const cn1 = barrowmanFinCn(
+            c.rootChordM, c.tipChordM, c.heightM, c.sweepLengthM, c.finCount, bodyRadius,
+          );
+          emit(c, cn1, x + barrowmanFinCpOff(c.rootChordM, c.tipChordM, c.sweepLengthM));
           break;
         }
         case "ellipticalfin": {
-          const area = (PI / 4) * c.rootChordM * c.heightM;
-          const cn1 = (area / Sref) * clAlpha(area, c.heightM);
-          emit(c, cn1 * orientationFactor(c.finCount), x + c.rootChordM * 0.4);
+          // Elips planformunu kök/tip trapezoidine yaklaştır: tip ≈ root/2, süpürme 0.
+          const ct = c.rootChordM / 2;
+          const cn1 = barrowmanFinCn(c.rootChordM, ct, c.heightM, 0, c.finCount, bodyRadius);
+          emit(c, cn1, x + barrowmanFinCpOff(c.rootChordM, ct, 0));
           break;
         }
         case "freeformfin": {
           const area = shoelaceArea(c.points);
           const span = Math.max(0.001, ...c.points.map((p) => p.y));
           const len = Math.max(...c.points.map((p) => p.x));
-          const cn1 = (area / Sref) * clAlpha(area, span);
+          const cn1 = (area / Sref) * (2 * PI * span * span / Math.max(area * 2, 1e-9));
           emit(c, cn1 * orientationFactor(c.finCount), x + len * 0.4);
           break;
         }
         case "tubefin": {
+          // Halka kanat: yüksek CN (klasik: CN ≈ 2·(L/d)·...); yapısal yaklaşık 4·planform.
           const area1 = PI * c.outerDiameterM * c.lengthM;
-          const cn1 = (area1 / Sref) * clAlpha(area1, c.lengthM);
+          const cn1 = (area1 / Sref) * (2 * PI * c.lengthM * c.lengthM / Math.max(area1 * 2, 1e-9));
           emit(c, cn1 * orientationFactor(c.finCount), x + c.lengthM * 0.5);
           break;
         }

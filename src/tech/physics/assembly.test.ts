@@ -6,8 +6,18 @@ import {
   placeRocket,
   clearMotors,
 } from "./assembly";
+import type { TechComponent } from "../model";
 
 const alpha = () => defaultTechRocket();
+
+const findIn = (cs: TechComponent[], kind: TechComponent["kind"]): TechComponent[] => {
+  const out: TechComponent[] = [];
+  for (const c of cs) {
+    if (c.kind === kind) out.push(c);
+    if (c.kind === "bodytube") out.push(...findIn(c.children, kind));
+  }
+  return out;
+};
 
 describe("tech assembly", () => {
   it("Alpha: uzunluk 0.29–0.33 m", () => {
@@ -70,5 +80,45 @@ describe("tech assembly", () => {
     expect(nose && tube && fin).toBeTruthy();
     expect(nose!.x).toBeLessThan(tube!.x);
     expect(fin!.x).toBeGreaterThan(tube!.x);
+  });
+
+  it("bodytube children: iç gövde motoru tüp içine yerleşir + CG katkısı doğru", () => {
+    const r = alpha();
+    // Varsayılan modelde motor yatağı üst seviyede; iç gövde (children) senaryosuna taşı.
+    const mountTop = r.stages[0].components.find((c) => c.kind === "motormount") as Extract<TechComponent, { kind: "motormount" }>;
+    r.stages[0].components = r.stages[0].components.filter((c) => c.kind !== "motormount");
+    const outerTube = r.stages[0].components.find((c) => c.kind === "bodytube")!;
+    r.stages[0].components.push({
+      kind: "bodytube",
+      id: "inner",
+      name: "İç gövde",
+      lengthM: 0.08,
+      outerDiameterM: outerTube.outerDiameterM,
+      wallThicknessM: outerTube.wallThicknessM,
+      radialOffsetM: 0,
+      angleDeg: 0,
+      axialOffsetM: 0,
+      finish: outerTube.finish,
+      materialId: outerTube.materialId,
+      children: [{ ...mountTop, axialOffsetM: 0, overhangM: 0.01 }],
+    });
+
+    const p = placeRocket(r);
+    const mount = p.find((pl) => pl.id === mountTop.id);
+    const innerTube = p.find((pl) => pl.id === "inner");
+    expect(mount).toBeTruthy();
+    // İç bileşenler gövde önünden ölçülür: x = tubeFront + axialOffset (0)
+    expect(Math.abs(mount!.x - innerTube!.x)).toBeLessThan(1e-9);
+    // Motor iç gövdenin içinde kalmalı
+    expect(mount!.x + mount!.lengthM).toBeLessThanOrEqual(innerTube!.x + innerTube!.lengthM + 1e-6);
+
+    const a = assembleTech(r);
+    // Motor CG katkısı: mount.x + overhang + motor.length/2
+    const spec = motorSpecsFromCatalog("C6-7")!;
+    const expectedMotorCg = innerTube!.x + 0.01 + spec.length / 2;
+    const expectedCg =
+      (a.placements.reduce((s, pl) => s + pl.massKg * pl.cgM, 0) + spec.mass * expectedMotorCg) /
+      (a.structureMass + spec.mass);
+    expect(Math.abs(a.cg - expectedCg)).toBeLessThan(1e-9);
   });
 });

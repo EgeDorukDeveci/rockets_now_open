@@ -28,6 +28,7 @@ function lerpSample(a: TelemetrySample, b: TelemetrySample, t: number): Telemetr
       a.vel[1] + (b.vel[1] - a.vel[1]) * t,
       a.vel[2] + (b.vel[2] - a.vel[2]) * t,
     ],
+    onRail: t < 1 ? a.onRail : b.onRail,
   };
 }
 

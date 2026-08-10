@@ -145,10 +145,11 @@ function stageToTech(s: StageConfig, index: number): TechStage {
 
   const children: TechComponent[] = [mount, inner, ring];
 
+  // Kurtarma sistemi + şok ipi burun bölmesinde istiflenir (casual ile aynı).
   const cord = makeComponent("shockcord") as ShockCord;
   cord.name = "Şok İpi";
   cord.cordLengthM = s.recovery.shockCordM;
-  cord.axialOffsetM = mount.axialOffsetM - 0.015;
+  cord.axialOffsetM = 0.01;
   cord.materialId = "elastic";
   children.push(cord);
 
@@ -174,7 +175,7 @@ function stageToTech(s: StageConfig, index: number): TechStage {
       st.stripLengthM = s.recovery.diameterM;
       st.stripWidthM = Math.max(0.04, s.recovery.diameterM / 5);
     }
-    rec.axialOffsetM = mount.axialOffsetM - 0.03;
+    rec.axialOffsetM = 0.02;
     rec.materialId = techMaterialId(s.recovery.material);
     children.push(rec);
   }
@@ -208,8 +209,9 @@ function stageToTech(s: StageConfig, index: number): TechStage {
     fin.finCount = s.fins.count;
     fin.crossSection = CROSS_MAP[s.fins.airfoil] ?? "square";
     fin.materialId = techMaterialId(s.fins.material);
-    const finX = s.fins.xPosM - noseLength(s) - s.body.lengthM;
-    fin.axialOffsetM = finX;
+    // Kanatlar gövde sonuna yerleştirilir (native preset semantiği; casual xPosM
+    // görsel sahne ile fizik arasında tutarsız). x = aft - (rootChord + 0.02).
+    fin.axialOffsetM = -(s.fins.rootChordM + 0.02);
     fins.push(fin);
   }
 
